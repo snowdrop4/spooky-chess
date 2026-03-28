@@ -1,3 +1,5 @@
+//! Game state, move generation, and move application.
+
 use arrayvec::ArrayVec;
 use smallvec::SmallVec;
 
@@ -30,6 +32,7 @@ mod tests_san;
 mod tests_actions;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Piece counts grouped by type and color.
 pub struct PieceCounts {
     /// counts[piece_type as usize][color_index] where color_index: White=0, Black=1
     counts: [[u8; 2]; 6],
@@ -50,7 +53,8 @@ impl PieceCounts {
         }
     }
 
-    pub fn new() -> Self {
+    /// Creates an empty counter.
+    fn new() -> Self {
         PieceCounts {
             counts: [[0; 2]; 6],
         }
@@ -79,12 +83,14 @@ impl PieceCounts {
     }
 
     #[inline]
-    pub fn increment(&mut self, piece_type: PieceType, color: Color) {
+    /// Increments the count for one piece kind and color.
+    pub(crate) fn increment(&mut self, piece_type: PieceType, color: Color) {
         self.counts[piece_type as usize][Self::color_idx(color)] += 1;
     }
 
     #[inline]
-    pub fn decrement(&mut self, piece_type: PieceType, color: Color) {
+    /// Decrements the count for one piece kind and color.
+    pub(crate) fn decrement(&mut self, piece_type: PieceType, color: Color) {
         debug_assert!(
             self.counts[piece_type as usize][Self::color_idx(color)] > 0,
             "PieceCounts underflow for {:?} {:?}",
@@ -95,13 +101,16 @@ impl PieceCounts {
     }
 
     #[inline]
+    /// Returns the count for one piece kind and color.
     pub fn get(&self, piece_type: PieceType, color: Color) -> u8 {
         self.counts[piece_type as usize][Self::color_idx(color)]
     }
 }
 
 #[derive(Clone)]
+/// A reversible move-history entry.
 pub struct MoveHistoryEntry {
+    /// The move that was applied.
     pub mv: Move,
     captured: Option<Piece>,
     castling_rights: CastlingRights,
@@ -111,6 +120,7 @@ pub struct MoveHistoryEntry {
 }
 
 #[derive(Clone)]
+/// A mutable chess game on a `W x H` board.
 pub struct Game<const W: usize, const H: usize>
 where
     [(); (W * H).div_ceil(64)]:,
@@ -134,6 +144,7 @@ where
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// Castling rights for both sides.
 pub struct CastlingRights {
     white_kingside: bool,
     white_queenside: bool,
@@ -150,7 +161,8 @@ impl Default for CastlingRights {
 
 #[hotpath::measure_all]
 impl CastlingRights {
-    pub fn new() -> Self {
+    /// Creates full castling rights for both sides.
+    fn new() -> Self {
         CastlingRights {
             white_kingside: true,
             white_queenside: true,
@@ -159,7 +171,8 @@ impl CastlingRights {
         }
     }
 
-    pub fn none() -> Self {
+    /// Creates an empty castling-rights set.
+    fn none() -> Self {
         CastlingRights {
             white_kingside: false,
             white_queenside: false,
@@ -168,6 +181,7 @@ impl CastlingRights {
         }
     }
 
+    /// Returns whether `color` may castle kingside.
     pub fn has_kingside(&self, color: Color) -> bool {
         match color {
             Color::White => self.white_kingside,
@@ -175,6 +189,7 @@ impl CastlingRights {
         }
     }
 
+    /// Returns whether `color` may castle queenside.
     pub fn has_queenside(&self, color: Color) -> bool {
         match color {
             Color::White => self.white_queenside,
@@ -222,6 +237,7 @@ where
         &BoardGeometry::<W, H>::INSTANCE
     }
 
+    /// Creates a game from FEN.
     pub fn new(fen: &str, castling_enabled: bool) -> Result<Self, String> {
         validate_board_dimensions(W, H)?;
 
@@ -319,19 +335,27 @@ where
         })
     }
 
+    /// Returns the board width.
     pub fn width(&self) -> usize {
         W
     }
 
+    /// Returns the board height.
     pub fn height(&self) -> usize {
         H
     }
 
+    /// Returns the piece at `pos`, if any.
     pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
         self.board.get_piece(pos)
     }
 
-    pub fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
+    #[cfg(any(test, feature = "python"))]
+    /// Sets a piece directly on the board.
+    ///
+    /// This updates piece counts, but leaves move history and other game
+    /// metadata untouched.
+    pub(crate) fn set_piece(&mut self, pos: &Position, piece: Option<Piece>) {
         // Update piece counts for the removed piece
         if let Some(existing) = self.board.get_piece(pos) {
             self.piece_counts
@@ -344,17 +368,20 @@ where
         self.board.set_piece(pos, piece)
     }
 
+    #[cfg(test)]
     /// Clear the board and reset piece counts.
-    pub fn clear_board(&mut self) {
+    fn clear_board(&mut self) {
         self.board.clear();
         self.piece_counts = PieceCounts::new();
     }
 
+    #[cfg(test)]
     /// Recompute piece counts from the board. Use after direct board manipulation.
-    pub fn sync_piece_counts(&mut self) {
+    fn sync_piece_counts(&mut self) {
         self.piece_counts = PieceCounts::from_board(&self.board);
     }
 
+    /// Returns all pieces of one color.
     pub fn pieces(&self, color: Color) -> Vec<(Position, Piece)> {
         self.board.pieces(color)
     }
@@ -363,38 +390,48 @@ where
         self.board.pieces_iter(color)
     }
 
-    pub fn board_hash<HH: std::hash::Hasher>(&self, state: &mut HH) {
+    #[cfg(any(test, feature = "python"))]
+    /// Hashes the board position into an existing hasher.
+    pub(crate) fn board_hash<HH: std::hash::Hasher>(&self, state: &mut HH) {
         self.board.hash(state);
     }
 
+    /// Returns the side to move.
     pub fn turn(&self) -> Color {
         self.turn
     }
 
+    /// Returns the fullmove number.
     pub fn fullmove_number(&self) -> u32 {
         self.fullmove_number
     }
 
+    /// Returns the halfmove clock.
     pub fn halfmove_clock(&self) -> u32 {
         self.halfmove_clock
     }
 
+    /// Returns the number of applied moves in history.
     pub fn move_count(&self) -> usize {
         self.move_history.len()
     }
 
+    /// Returns the applied move history.
     pub fn move_history(&self) -> &[MoveHistoryEntry] {
         &self.move_history
     }
 
+    /// Returns whether castling rules are enabled.
     pub fn castling_enabled(&self) -> bool {
         self.castling_enabled
     }
 
+    /// Returns the current castling rights.
     pub fn castling_rights(&self) -> &CastlingRights {
         &self.castling_rights
     }
 
+    /// Returns the cached piece counts.
     pub fn piece_counts(&self) -> &PieceCounts {
         &self.piece_counts
     }
@@ -405,6 +442,7 @@ pub type StandardGame = Game<8, 8>;
 
 #[hotpath::measure_all]
 impl StandardGame {
+    /// Creates the standard initial 8x8 chess position.
     pub fn standard() -> Self {
         Self::new(
             "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

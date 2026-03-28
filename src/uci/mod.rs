@@ -1,5 +1,8 @@
+//! UCI engine process integration.
+
 mod protocol;
 
+/// UCI response types and communication errors.
 pub use protocol::{InfoLine, SearchResult, UciError};
 
 use crate::color::Color;
@@ -13,6 +16,7 @@ use crate::position::Position;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
+/// A wrapper around an external UCI engine process.
 pub struct UciEngine {
     process: Child,
     stdin: BufWriter<ChildStdin>,
@@ -75,14 +79,17 @@ impl UciEngine {
         Ok(engine)
     }
 
+    /// Returns the engine name reported during the UCI handshake.
     pub fn engine_name(&self) -> Option<&str> {
         self.engine_name.as_deref()
     }
 
+    /// Returns the engine author reported during the UCI handshake.
     pub fn engine_author(&self) -> Option<&str> {
         self.engine_author.as_deref()
     }
 
+    /// Returns the mirrored internal game state.
     pub fn game(&self) -> &StandardGame {
         &self.game
     }
@@ -226,27 +233,32 @@ impl UciEngine {
         Ok(mv)
     }
 
-    /// Get the current turn color.
+    /// Returns the side to move.
     pub fn turn(&self) -> Color {
         self.game.turn()
     }
 
+    /// Returns the fullmove number.
     pub fn fullmove_number(&self) -> u32 {
         self.game.fullmove_number()
     }
 
+    /// Returns the halfmove clock.
     pub fn halfmove_clock(&self) -> u32 {
         self.game.halfmove_clock()
     }
 
+    /// Returns whether castling rules are enabled.
     pub fn castling_enabled(&self) -> bool {
         self.game.castling_enabled()
     }
 
+    /// Returns whether `color` may castle kingside.
     pub fn has_kingside_castling_rights(&self, color: Color) -> bool {
         self.game.castling_rights().has_kingside(color)
     }
 
+    /// Returns whether `color` may castle queenside.
     pub fn has_queenside_castling_rights(&self, color: Color) -> bool {
         self.game.castling_rights().has_queenside(color)
     }
@@ -256,83 +268,102 @@ impl UciEngine {
         self.game.is_over()
     }
 
+    /// Returns the current outcome, if the game is over.
     pub fn outcome(&mut self) -> Option<GameOutcome> {
         self.game.outcome()
     }
 
+    /// Returns the current turn state.
     pub fn turn_state(&mut self) -> TurnState {
         self.game.turn_state()
     }
 
+    /// Returns whether the side to move is in check.
     pub fn is_check(&self) -> bool {
         self.game.is_check()
     }
 
+    /// Returns whether the side to move is checkmated.
     pub fn is_checkmate(&mut self) -> bool {
         self.game.is_checkmate()
     }
 
+    /// Returns whether the side to move is stalemated.
     pub fn is_stalemate(&mut self) -> bool {
         self.game.is_stalemate()
     }
 
+    /// Returns whether neither side has mating material.
     pub fn is_insufficient_material(&self) -> bool {
         self.game.is_insufficient_material()
     }
 
+    /// Returns whether the current en passant square is legally capturable.
     pub fn has_legal_en_passant(&mut self) -> bool {
         self.game.has_legal_en_passant()
     }
 
+    /// Returns the current en passant target square, if any.
     pub fn en_passant_square(&self) -> Option<Position> {
         self.game.en_passant_square()
     }
 
-    /// Get legal moves from the current position.
+    /// Returns all legal moves from the current position.
     pub fn legal_moves(&mut self) -> MoveList {
         self.game.legal_moves()
     }
 
+    /// Returns pseudo-legal moves from the current position.
     pub fn pseudo_legal_moves(&self) -> MoveList {
         self.game.pseudo_legal_moves()
     }
 
+    /// Returns legal moves for one source square.
     pub fn legal_moves_for_position(&mut self, src: &Position) -> MoveList {
         self.game.legal_moves_for_position(src)
     }
 
+    /// Returns whether `mv` is legal in the current position.
     pub fn is_legal_move(&mut self, mv: &Move) -> bool {
         self.game.is_legal_move(mv)
     }
 
+    /// Formats a move as LAN.
     pub fn move_to_lan(&mut self, mv: &Move) -> String {
         self.game.move_to_lan(mv)
     }
 
+    /// Parses LAN in the current position.
     pub fn move_from_lan(&self, lan: &str) -> Result<Move, String> {
         self.game.move_from_lan(lan)
     }
 
+    /// Formats a move as SAN.
     pub fn move_to_san(&mut self, mv: &Move) -> String {
         self.game.move_to_san(mv)
     }
 
+    /// Parses SAN in the current position.
     pub fn move_from_san(&mut self, san: &str) -> Result<Move, String> {
         self.game.move_from_san(san)
     }
 
+    /// Returns the board width.
     pub fn width(&self) -> usize {
         self.game.width()
     }
 
+    /// Returns the board height.
     pub fn height(&self) -> usize {
         self.game.height()
     }
 
+    /// Returns the piece at `pos`, if any.
     pub fn get_piece(&self, pos: &Position) -> Option<Piece> {
         self.game.get_piece(pos)
     }
 
+    /// Serializes the current position as FEN.
     pub fn to_fen(&mut self) -> String {
         self.game.to_fen()
     }

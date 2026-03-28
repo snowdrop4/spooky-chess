@@ -1,13 +1,27 @@
+//! Board coordinates and algebraic notation helpers.
+
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// A zero-based board position.
+///
+/// ```
+/// use spooky_chess::position::Position;
+///
+/// let pos = Position::from_algebraic("e4").unwrap();
+/// assert_eq!(pos, Position::new(4, 3));
+/// assert_eq!(pos.to_algebraic(), "e4");
+/// ```
 pub struct Position {
+    /// Zero-based file.
     pub col: u8,
+    /// Zero-based rank.
     pub row: u8,
 }
 
 #[hotpath::measure_all]
 impl Position {
+    /// Creates a position from zero-based coordinates.
     pub fn new(col: u8, row: u8) -> Self {
         Position { col, row }
     }
@@ -20,16 +34,19 @@ impl Position {
     }
 
     #[inline]
+    /// Returns whether the position lies within a `width x height` board.
     pub fn is_valid(&self, width: usize, height: usize) -> bool {
         usize::from(self.col) < width && usize::from(self.row) < height
     }
 
     #[inline]
+    /// Converts the position to a row-major board index.
     pub fn to_index(&self, width: usize) -> usize {
         usize::from(self.row) * width + usize::from(self.col)
     }
 
     #[inline]
+    /// Converts a row-major board index back to a position.
     pub fn from_index(index: usize, width: usize) -> Position {
         Position {
             col: u8::try_from(index % width).expect("Position::from_index: col exceeds u8"),
@@ -37,6 +54,7 @@ impl Position {
         }
     }
 
+    /// Formats the position as algebraic notation like `e4`.
     pub fn to_algebraic(&self) -> String {
         if self.col < 26 {
             format!("{}{}", (b'a' + self.col) as char, usize::from(self.row) + 1)
@@ -45,6 +63,7 @@ impl Position {
         }
     }
 
+    /// Parses algebraic notation like `e4`.
     pub fn from_algebraic(s: &str) -> Result<Self, String> {
         if s.len() < 2 {
             return Err("Invalid position string".to_string());

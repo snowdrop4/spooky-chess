@@ -1,34 +1,37 @@
+//! Neural-network state and action encoders.
+
 use crate::color::Color;
 use crate::directions::{KNIGHT_DELTAS, direction_index};
 use crate::game::Game;
 use crate::r#move::Move;
 use crate::pieces::PieceType;
 
-/// Number of planes for piece positions (6 for WHITE + 6 for BLACK)
+/// Number of piece planes per history step: 6 for white and 6 for black.
 pub const PIECE_PLANES: usize = 6 + 6;
 
-/// Number of constant planes (2 repetitions + 1 color + 1 total move + 4 castling + 1 no-progress)
+/// Number of constant planes: 2 repetition, 1 side-to-move, 1 move count,
+/// 4 castling, and 1 no-progress plane.
 pub const CONSTANT_PLANES: usize = 2 + 1 + 1 + 4 + 1;
 
-/// Number of positions in the game history to encode
+/// Number of positions in the game history to encode.
 pub const HISTORY_LENGTH: usize = 8;
 
-/// Total number of input planes for the neural network
+/// Total number of input planes for the encoder.
 pub const TOTAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT_PLANES;
 
-/// Number of directions for horizontal/vertical/diagonal moves (N, NE, E, SE, S, SW, W, NW)
+/// Number of sliding directions: N, NE, E, SE, S, SW, W, NW.
 pub const NUM_DIRECTIONS: usize = 8;
 
-/// Number of knight move patterns
+/// Number of knight move patterns.
 pub const NUM_KNIGHT_DELTAS: usize = 8;
 
-/// Number of underpromotion directions (left diagonal, straight, right diagonal)
+/// Number of underpromotion directions: left capture, straight, and right capture.
 pub const NUM_UNDERPROMO_DIRECTIONS: usize = 3;
 
-/// Number of underpromotion piece types (knight, bishop, rook - excluding queen)
+/// Number of underpromotion piece types: knight, bishop, and rook.
 pub const NUM_UNDERPROMO_PIECES: usize = 3;
 
-/// Number of promotion move directions (forward, backward)
+/// Number of promotion orientations: forward and backward.
 pub const NUM_PROMOTION_ORIENTATIONS: usize = 2;
 
 /// Normalization divisor for fullmove number in the NN input planes.
@@ -37,8 +40,9 @@ const FULLMOVE_SCALE: f32 = 100.0;
 /// Normalization divisor for halfmove clock (no-progress count) in the NN input planes.
 const HALFMOVE_SCALE: f32 = 50.0;
 
-/// Encode the full game state into a flat f32 array for efficient transfer to Python/numpy
-/// Returns (flat_data, num_planes, height, width), where flat_data is in row-major order
+/// Encodes the full game state into a flat `f32` array.
+///
+/// Returns `(flat_data, num_planes, height, width)` in row-major order.
 #[hotpath::measure]
 pub fn encode_game_planes<const W: usize, const H: usize>(
     game: &mut Game<W, H>,
@@ -248,7 +252,7 @@ fn fill_chess_planes<const W: usize, const H: usize>(
     }
 }
 
-/// Encode a move as a full action index (plane * board_size + src_index)
+/// Encodes a move as a full action index: `plane * board_size + src_index`.
 #[hotpath::measure]
 pub fn encode_action(move_: &Move, width: usize, height: usize) -> Option<usize> {
     debug_assert!(
@@ -273,7 +277,7 @@ pub fn encode_action(move_: &Move, width: usize, height: usize) -> Option<usize>
     Some(plane * board_size + src_index)
 }
 
-/// Get the total number of action indices for a given board size
+/// Returns the total number of action indices for a board size.
 #[hotpath::measure]
 pub fn get_total_actions(width: usize, height: usize) -> usize {
     get_move_planes_count(width, height) * width * height
@@ -436,7 +440,7 @@ pub(crate) fn decode_move_plane(
     }
 }
 
-/// Get the total number of move policy planes for a given board dimensions
+/// Returns the total number of move-policy planes for a board size.
 #[hotpath::measure]
 pub fn get_move_planes_count(width: usize, height: usize) -> usize {
     let max_distance = width.max(height) - 1;

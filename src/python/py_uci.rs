@@ -40,7 +40,7 @@ pub struct PySearchResult {
     #[pyo3(get)]
     pub depth: Option<u32>,
     #[pyo3(get)]
-    pub nodes: Option<u64>,
+    pub node_count: Option<u64>,
     #[pyo3(get)]
     pub pv: Vec<String>,
 }
@@ -73,7 +73,7 @@ impl PySearchResult {
             score_cp: last_info.and_then(|i| i.score_cp),
             score_mate: last_info.and_then(|i| i.score_mate),
             depth: last_info.and_then(|i| i.depth),
-            nodes: last_info.and_then(|i| i.nodes),
+            node_count: last_info.and_then(|i| i.node_count),
             pv: last_info.map(|i| i.pv.clone()).unwrap_or_default(),
         }
     }

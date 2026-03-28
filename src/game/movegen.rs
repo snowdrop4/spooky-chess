@@ -12,6 +12,7 @@ impl<const W: usize, const H: usize> Game<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
+    /// Returns whether `mv` is legal in the current position.
     pub fn is_legal_move(&mut self, mv: &Move) -> bool {
         let piece = match self.board.get_piece(&mv.src) {
             Some(p) if p.color == self.turn => p,
@@ -160,6 +161,7 @@ where
         !in_check
     }
 
+    /// Returns all legal moves for the side to move.
     pub fn legal_moves(&mut self) -> MoveList {
         let mut moves = MoveList::new();
         self.for_each_legal_move(|mv| {
@@ -428,6 +430,9 @@ where
         false
     }
 
+    /// Returns pseudo-legal moves for the side to move.
+    ///
+    /// These moves may still leave the king in check.
     pub fn pseudo_legal_moves(&self) -> MoveList {
         let mut moves = MoveList::new();
 
@@ -438,6 +443,7 @@ where
         moves
     }
 
+    /// Returns legal moves for one source square.
     pub fn legal_moves_for_position(&mut self, src: &Position) -> MoveList {
         let mut moves = MoveList::new();
         let mut pseudo_legal = MoveList::new();

@@ -22,7 +22,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
+      - name: Run Rust tests
         run: cargo test --no-default-features
 
   python-tests:

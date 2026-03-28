@@ -75,6 +75,7 @@ where
         self.is_square_attacked(&king_pos, color.opposite())
     }
 
+    /// Returns whether the side to move is in check.
     pub fn is_check(&self) -> bool {
         self.is_in_check(self.turn)
     }
@@ -83,22 +84,27 @@ where
         self.for_each_legal_move(|_mv| true)
     }
 
+    /// Returns whether the side to move is checkmated.
     pub fn is_checkmate(&mut self) -> bool {
         self.is_check() && !self.has_any_legal_move()
     }
 
+    /// Returns whether the side to move is stalemated.
     pub fn is_stalemate(&mut self) -> bool {
         !self.is_check() && !self.has_any_legal_move()
     }
 
+    /// Returns whether the game is over.
     pub fn is_over(&mut self) -> bool {
         self.halfmove_clock >= 150 || self.is_insufficient_material() || !self.has_any_legal_move()
     }
 
+    /// Returns the current en passant target square, if any.
     pub fn en_passant_square(&self) -> Option<Position> {
         self.en_passant
     }
 
+    /// Returns whether the current en passant square is legally capturable.
     pub fn has_legal_en_passant(&mut self) -> bool {
         if let Some(ep_square) = self.en_passant {
             let ep_idx = ep_square.to_index(W);
@@ -139,8 +145,13 @@ where
         false
     }
 
-    /// Infer move flags (capture, castle, en passant, double push) from the current board state.
-    pub fn infer_move_flags(&self, src: &Position, dst: &Position, piece: &Piece) -> MoveFlags {
+    /// Infers move flags from the current board state.
+    pub(crate) fn infer_move_flags(
+        &self,
+        src: &Position,
+        dst: &Position,
+        piece: &Piece,
+    ) -> MoveFlags {
         let mut flags = MoveFlags::empty();
 
         if self.board.get_piece(dst).is_some() {
@@ -165,8 +176,7 @@ where
         flags
     }
 
-    /// Parse a LAN move string, with game context to set proper flags (castling, en passant, etc.)
-    /// The `from_lan()` method on Move itself lacks game context.
+    /// Parses LAN using the current position to infer flags.
     pub fn move_from_lan(&self, lan: &str) -> Result<Move, String> {
         let base_move = Move::from_lan(lan, W, H)?;
 
@@ -185,10 +195,12 @@ where
         })
     }
 
+    /// Formats a move as LAN.
     pub fn move_to_lan(&self, mv: &Move) -> String {
         mv.to_lan()
     }
 
+    /// Formats a move as SAN in the current position.
     pub fn move_to_san(&mut self, mv: &Move) -> String {
         let mut san = String::new();
 
@@ -267,6 +279,7 @@ where
         san
     }
 
+    /// Parses SAN in the current position.
     pub fn move_from_san(&mut self, san: &str) -> Result<Move, String> {
         // Strip check/mate suffixes
         let san = san.trim_end_matches(['+', '#']);
@@ -415,6 +428,7 @@ where
         }
     }
 
+    /// Returns the current game outcome, if the game is over.
     pub fn outcome(&mut self) -> Option<GameOutcome> {
         if self.halfmove_clock >= 150 {
             return Some(GameOutcome::FiftyMoveRule);
@@ -440,6 +454,7 @@ where
         }
     }
 
+    /// Returns either the current legal moves or the terminal outcome.
     pub fn turn_state(&mut self) -> TurnState {
         if self.halfmove_clock >= 150 {
             return TurnState::Over(GameOutcome::FiftyMoveRule);
@@ -467,6 +482,7 @@ where
         TurnState::Over(outcome)
     }
 
+    /// Returns whether neither side has mating material.
     pub fn is_insufficient_material(&self) -> bool {
         debug_assert_eq!(
             self.piece_counts,
@@ -537,6 +553,7 @@ where
         first_color.is_some()
     }
 
+    /// Serializes the current position as FEN.
     pub fn to_fen(&mut self) -> String {
         let mut fen = self.board.to_fen();
 

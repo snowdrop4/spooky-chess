@@ -1,7 +1,12 @@
+//! Direction tables used by move generation and encoding.
+
+/// Orthogonal `(dx, dy)` directions.
 pub const ORTHOGONAL: [(i32, i32); 4] = [(0, 1), (0, -1), (1, 0), (-1, 0)];
 
+/// Diagonal `(dx, dy)` directions.
 pub const DIAGONAL: [(i32, i32); 4] = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
 
+/// All eight queen directions in encoding order.
 pub const ALL_DIRS: [(i32, i32); 8] = [
     (0, 1),
     (0, -1),
@@ -13,8 +18,7 @@ pub const ALL_DIRS: [(i32, i32); 8] = [
     (-1, -1),
 ];
 
-/// Map a (dx, dy) direction to a plane index (0..7) for move encoding.
-/// Order: N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7
+/// Maps a direction to its move-plane index.
 pub fn direction_index(dx: i32, dy: i32) -> Option<usize> {
     match (dx.signum(), dy.signum()) {
         (0, 1) => Some(0),   // N
@@ -29,8 +33,7 @@ pub fn direction_index(dx: i32, dy: i32) -> Option<usize> {
     }
 }
 
-/// L-shaped knight move offsets as (col_delta, row_delta).
-/// The ordering is stable and used by the encode module for plane indices.
+/// Knight move deltas in encoding order.
 pub const KNIGHT_DELTAS: [(i32, i32); 8] = [
     (1, 2),
     (2, 1),

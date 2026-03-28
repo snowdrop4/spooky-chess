@@ -5,31 +5,47 @@ use std::io;
 /// Result of a UCI `go` command.
 #[derive(Debug, Clone)]
 pub struct SearchResult {
+    /// The engine's chosen move.
     pub best_move: Move,
+    /// The engine's chosen move in LAN form.
     pub best_move_lan: String,
+    /// The engine's ponder move, if any.
     pub ponder_move: Option<Move>,
+    /// The engine's ponder move in LAN form.
     pub ponder_move_lan: Option<String>,
+    /// Collected `info` lines emitted before `bestmove`.
     pub info: Vec<InfoLine>,
 }
 
 /// A parsed UCI `info` line.
 #[derive(Debug, Clone)]
 pub struct InfoLine {
+    /// Search depth.
     pub depth: Option<u32>,
+    /// Centipawn score.
     pub score_cp: Option<i32>,
+    /// Mate distance score.
     pub score_mate: Option<i32>,
-    pub nodes: Option<u64>,
+    /// Node count.
+    pub node_count: Option<u64>,
+    /// Nodes per second.
     pub nps: Option<u64>,
+    /// Search time in milliseconds.
     pub time_ms: Option<u64>,
+    /// Principal variation as LAN moves.
     pub pv: Vec<String>,
 }
 
 /// Errors that can occur during UCI communication.
 #[derive(Debug)]
 pub enum UciError {
+    /// Underlying process I/O failed.
     IoError(io::Error),
+    /// The engine emitted unexpected protocol output.
     ProtocolError(String),
+    /// The engine process exited unexpectedly.
     EngineExited,
+    /// A move string was invalid in the mirrored game state.
     IllegalMove(String),
 }
 
@@ -146,7 +162,7 @@ pub fn parse_info_line(line: &str) -> Option<InfoLine> {
     let mut depth = None;
     let mut score_cp = None;
     let mut score_mate = None;
-    let mut nodes = None;
+    let mut node_count = None;
     let mut nps = None;
     let mut time_ms = None;
     let mut pv = Vec::new();
@@ -166,7 +182,7 @@ pub fn parse_info_line(line: &str) -> Option<InfoLine> {
                 _ => {}
             },
             "nodes" => {
-                nodes = tokens.next().and_then(|t| t.parse().ok());
+                node_count = tokens.next().and_then(|t| t.parse().ok());
             }
             "nps" => {
                 nps = tokens.next().and_then(|t| t.parse().ok());
@@ -186,7 +202,7 @@ pub fn parse_info_line(line: &str) -> Option<InfoLine> {
         depth,
         score_cp,
         score_mate,
-        nodes,
+        node_count,
         nps,
         time_ms,
         pv,

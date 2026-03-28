@@ -1,3 +1,5 @@
+//! Fixed-size bitboards and precomputed board geometry.
+
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 /// Number of bits per word in the bitboard storage.
@@ -5,6 +7,14 @@ const WORD_BITS: usize = 64;
 
 /// A fixed-size bitboard parameterized by the number of u64 words.
 /// `NW` = number of active words = ceil(width*height / 64).
+///
+/// ```
+/// use spooky_chess::bitboard::Bitboard;
+///
+/// let bb = Bitboard::<1>::single(1) | Bitboard::<1>::single(3);
+/// let bits: Vec<_> = bb.iter_ones().collect();
+/// assert_eq!(bits, vec![1, 3]);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Bitboard<const NW: usize> {
     words: [u64; NW],
@@ -354,13 +364,17 @@ impl<const NW: usize> Iterator for BitIterator<NW> {
 /// A single directional step for ray-based sliding move generation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DirStep<const NW: usize> {
+    /// Shift distance in bit indices.
     pub shift: usize,
-    pub left: bool,         // true = shift_left, false = shift_right
-    pub mask: Bitboard<NW>, // column mask to prevent wrapping (ANDed after each step)
+    /// Whether to shift toward larger indices.
+    pub left: bool,
+    /// Mask applied after the shift to prevent wrapping.
+    pub mask: Bitboard<NW>,
 }
 
 impl<const NW: usize> DirStep<NW> {
     #[inline]
+    /// Applies one masked step.
     pub fn step(&self, bb: Bitboard<NW>) -> Bitboard<NW> {
         if self.left {
             bb.shift_left(self.shift) & self.mask
@@ -416,16 +430,20 @@ impl<const W: usize, const H: usize> BoardGeometry<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
+    /// Shared geometry singleton for this board size.
     pub const INSTANCE: Self = Self::new();
 
+    /// Returns the board width.
     pub const fn width() -> usize {
         W
     }
 
+    /// Returns the board height.
     pub const fn height() -> usize {
         H
     }
 
+    /// Returns the number of squares.
     pub const fn area() -> usize {
         W * H
     }
@@ -773,6 +791,7 @@ where
     }
 
     #[inline]
+    /// Returns knight attacks from `sq_index`.
     pub fn knight_attacks(&self, sq_index: usize) -> Bitboard<{ (W * H).div_ceil(64) }> {
         debug_assert!(
             sq_index < W * H,
@@ -821,6 +840,7 @@ where
     }
 
     #[inline]
+    /// Returns king attacks from `sq_index`.
     pub fn king_attacks(&self, sq_index: usize) -> Bitboard<{ (W * H).div_ceil(64) }> {
         debug_assert!(
             sq_index < W * H,

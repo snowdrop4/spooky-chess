@@ -1,3 +1,5 @@
+//! PGN parsing, iteration, and serialization.
+
 use std::fmt;
 
 use tree_sitter::{Node, Parser};
@@ -13,13 +15,20 @@ mod tests;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
+/// An error produced while parsing or validating PGN.
 pub enum PgnError {
+    /// The PGN could not be parsed structurally.
     ParseError(String),
+    /// A move token could not be applied to the current game.
     InvalidMove {
+        /// The move number.
         move_number: u32,
+        /// The original SAN token.
         san: String,
+        /// The validation failure.
         reason: String,
     },
+    /// The game result token was invalid.
     InvalidResult(String),
 }
 
@@ -48,11 +57,14 @@ impl std::error::Error for PgnError {}
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Default)]
+/// PGN header pairs.
 pub struct PgnHeaders {
+    /// Raw `(key, value)` header pairs in file order.
     pub pairs: Vec<(String, String)>,
 }
 
 impl PgnHeaders {
+    /// Returns a header value by key, case-insensitively.
     pub fn get(&self, key: &str) -> Option<&str> {
         self.pairs
             .iter()
@@ -60,21 +72,27 @@ impl PgnHeaders {
             .map(|(_, v)| v.as_str())
     }
 
+    /// Returns the `Event` header.
     pub fn event(&self) -> Option<&str> {
         self.get("Event")
     }
+    /// Returns the `Site` header.
     pub fn site(&self) -> Option<&str> {
         self.get("Site")
     }
+    /// Returns the `Date` header.
     pub fn date(&self) -> Option<&str> {
         self.get("Date")
     }
+    /// Returns the `White` header.
     pub fn white(&self) -> Option<&str> {
         self.get("White")
     }
+    /// Returns the `Black` header.
     pub fn black(&self) -> Option<&str> {
         self.get("Black")
     }
+    /// Returns the `Result` header.
     pub fn result(&self) -> Option<&str> {
         self.get("Result")
     }
@@ -85,10 +103,15 @@ impl PgnHeaders {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A PGN result code.
 pub enum PgnResult {
+    /// `1-0`.
     WhiteWin,
+    /// `0-1`.
     BlackWin,
+    /// `1/2-1/2`.
     Draw,
+    /// `*`.
     Unknown,
 }
 
@@ -120,14 +143,20 @@ impl fmt::Display for PgnResult {
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
+/// A parsed PGN game.
 pub struct PgnGame {
+    /// PGN headers.
     pub headers: PgnHeaders,
+    /// Moves in internal move form.
     pub moves: Vec<Move>,
+    /// Parsed result code.
     pub result: PgnResult,
+    /// Final board state after all moves.
     pub final_game: StandardGame,
 }
 
 impl PgnGame {
+    /// Returns the starting FEN if the PGN uses `SetUp`/`FEN`.
     pub fn starting_fen(&self) -> Option<&str> {
         if self.headers.get("SetUp") == Some("1") {
             self.headers.get("FEN")
@@ -136,6 +165,7 @@ impl PgnGame {
         }
     }
 
+    /// Builds the starting game described by the PGN.
     pub fn starting_game(&self) -> Result<StandardGame, PgnError> {
         if let Some(fen) = self.starting_fen() {
             StandardGame::new(fen, true).map_err(PgnError::ParseError)
@@ -144,6 +174,7 @@ impl PgnGame {
         }
     }
 
+    /// Serializes the game back to PGN.
     pub fn to_pgn(&self) -> String {
         let mut out = String::new();
 
@@ -428,12 +459,12 @@ impl Iterator for PgnIter {
     }
 }
 
-/// Parse a PGN string that may contain multiple games.
+/// Parses a PGN string that may contain multiple games.
 pub fn parse_pgn(pgn: &str) -> Result<Vec<PgnGame>, PgnError> {
     PgnIter::new(pgn.to_string())?.collect()
 }
 
-/// Parse a PGN string containing exactly one game.
+/// Parses a PGN string containing exactly one game.
 pub fn parse_pgn_single_game(pgn: &str) -> Result<PgnGame, PgnError> {
     let mut games = parse_pgn(pgn)?;
     match games.len() {

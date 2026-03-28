@@ -8,7 +8,7 @@ impl<const W: usize, const H: usize> Game<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    /// Decode a full action index into a Move, inferring flags from board state.
+    /// Decodes an action index into a move.
     pub fn decode_action(&self, action: usize) -> Option<Move> {
         let board_size = W * H;
 
@@ -54,8 +54,10 @@ where
         })
     }
 
-    /// Apply an action index to the game
-    /// Returns false if the action is invalid (no piece at source, off-board, etc.).
+    /// Decodes and applies an action without legality checking.
+    ///
+    /// Returns `false` if the action cannot be decoded for the current
+    /// position. Otherwise returns `true` after applying the decoded move.
     pub fn apply_action(&mut self, action: usize) -> bool {
         let mv = match self.decode_action(action) {
             Some(mv) => mv,
@@ -65,7 +67,7 @@ where
         true
     }
 
-    /// Encode a move as a full action index. Convenience wrapper.
+    /// Encodes a move as an action index for this board size.
     pub fn encode_action(&self, mv: &Move) -> Option<usize> {
         crate::encode::encode_action(mv, W, H)
     }

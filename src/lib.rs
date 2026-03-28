@@ -1,3 +1,6 @@
+//! Chess engine types, notation helpers, PGN parsing, UCI integration, and
+//! action/state encoding utilities.
+
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 

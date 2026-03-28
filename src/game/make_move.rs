@@ -10,7 +10,11 @@ impl<const W: usize, const H: usize> Game<W, H>
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    /// Returns: whether the move was successfully made
+    /// Tries to apply `mv`.
+    ///
+    /// Returns `true` if `mv` is legal in the current position and was
+    /// applied. Returns `false` if the source square is empty, the piece is not
+    /// owned by the side to move, or the move is illegal.
     pub fn make_move(&mut self, mv: &Move) -> bool {
         // Validate the move is from a piece of the correct color
         let piece = match self.board.get_piece(&mv.src) {
@@ -27,8 +31,7 @@ where
         true
     }
 
-    /// Apply a move that is already known to be legal. Skips legality checking.
-    /// Caller must guarantee the move came from `legal_moves()` or equivalent.
+    /// Applies a move that is already known to be legal.
     pub fn make_move_unchecked(&mut self, mv: &Move) {
         let piece = self
             .board
@@ -202,6 +205,10 @@ where
         self.turn = self.turn.opposite();
     }
 
+    /// Reverts the last applied move.
+    ///
+    /// Returns `true` if a move was undone, or `false` if the move history is
+    /// empty.
     pub fn unmake_move(&mut self) -> bool {
         if let Some(entry) = self.move_history.pop() {
             let mv = entry.mv;

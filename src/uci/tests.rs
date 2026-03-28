@@ -43,7 +43,7 @@ fn test_parse_info_all_fields() {
     assert_eq!(info.depth, Some(20));
     assert_eq!(info.score_cp, Some(35));
     assert_eq!(info.score_mate, None);
-    assert_eq!(info.nodes, Some(1234567));
+    assert_eq!(info.node_count, Some(1234567));
     assert_eq!(info.nps, Some(500000));
     assert_eq!(info.time_ms, Some(2469));
     assert_eq!(info.pv, vec!["e2e4", "e7e5", "g1f3"]);
@@ -68,7 +68,7 @@ fn test_parse_info_missing_optional_fields() {
     let info = parse_info_line("info depth 1").expect("should parse");
     assert_eq!(info.depth, Some(1));
     assert_eq!(info.score_cp, None);
-    assert_eq!(info.nodes, None);
+    assert_eq!(info.node_count, None);
     assert!(info.pv.is_empty());
 }
 

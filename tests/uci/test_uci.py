@@ -161,11 +161,11 @@ def test_search_result_pv() -> None:
 
 
 @needs_stockfish
-def test_search_result_nodes() -> None:
+def test_search_result_node_count() -> None:
     engine = spooky_chess.UciEngine("stockfish")
     result = engine.go_depth(10)
-    assert result.nodes is not None
-    assert result.nodes > 0
+    assert result.node_count is not None
+    assert result.node_count > 0
 
 
 @needs_stockfish

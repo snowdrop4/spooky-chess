@@ -1,3 +1,5 @@
+//! Move values and LAN parsing.
+
 use crate::pieces::PieceType;
 use crate::position::Position;
 use bitflags::bitflags;
@@ -27,26 +29,46 @@ fn parse_square_prefix(s: &str, start: usize) -> Result<(Position, usize), Strin
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    /// Extra move metadata inferred from the board state.
     pub struct MoveFlags: u8 {
+        /// The move captures a piece.
         const CAPTURE = 0b00000001;
+        /// The move is a two-square pawn push.
         const DOUBLE_PUSH = 0b00000010;
+        /// The move captures en passant.
         const EN_PASSANT = 0b00000100;
+        /// The move castles.
         const CASTLE = 0b00001000;
+        /// The move promotes a pawn.
         const PROMOTION = 0b00010000;
+        /// The move gives check.
         const CHECK = 0b00100000;
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// A chess move.
+///
+/// ```
+/// use spooky_chess::r#move::Move;
+///
+/// let mv = Move::from_lan("a9a10", 10, 10).unwrap();
+/// assert_eq!(mv.to_lan(), "a9a10");
+/// ```
 pub struct Move {
+    /// Source square.
     pub src: Position,
+    /// Destination square.
     pub dst: Position,
+    /// Move metadata.
     pub flags: MoveFlags,
+    /// Promotion target, if any.
     pub promotion: Option<PieceType>,
 }
 
 #[hotpath::measure_all]
 impl Move {
+    /// Creates a move without promotion.
     pub fn from_position(src: Position, dst: Position, flags: MoveFlags) -> Self {
         Move {
             src,
@@ -56,6 +78,7 @@ impl Move {
         }
     }
 
+    /// Creates a promotion move.
     pub fn from_position_with_promotion(
         src: Position,
         dst: Position,
@@ -70,6 +93,7 @@ impl Move {
         }
     }
 
+    /// Parses LAN like `e2e4` or `a7a8q`.
     pub fn from_lan(lan: &str, board_width: usize, board_height: usize) -> Result<Self, String> {
         if lan.len() < 4 {
             return Err("Invalid LAN move".to_string());
@@ -104,10 +128,8 @@ impl Move {
         Ok(move_)
     }
 
-    /// Returns `(rook_from, rook_to)` for a castling move given the board width.
-    /// Kingside: rook starts at column `board_width - 1`, lands at `king_dst - 1`.
-    /// Queenside: rook starts at column 0, lands at `king_dst + 1`.
-    pub fn castling_rook_positions(&self, board_width: usize) -> (Position, Position) {
+    /// Returns the rook movement implied by a castling move.
+    pub(crate) fn castling_rook_positions(&self, board_width: usize) -> (Position, Position) {
         debug_assert!(self.flags.contains(MoveFlags::CASTLE));
         if self.dst.col > self.src.col {
             // Kingside
@@ -124,6 +146,7 @@ impl Move {
         }
     }
 
+    /// Formats the move as LAN.
     pub fn to_lan(&self) -> String {
         let mut lan = format!("{}{}", self.src.to_algebraic(), self.dst.to_algebraic());
 
