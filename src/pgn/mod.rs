@@ -1,5 +1,6 @@
 //! PGN parsing, iteration, and serialization.
 
+use std::convert::TryFrom;
 use std::fmt;
 
 use tree_sitter::{Node, Parser};
@@ -310,7 +311,9 @@ fn parse_game_node(game_node: &Node, source: &[u8]) -> Result<PgnGame, PgnError>
 
         // Collect san_move and lan_move nodes in document order
         let mut move_nodes: Vec<Node> = Vec::new();
-        for i in 0..movetext_node.named_child_count() {
+        let named_child_count = u32::try_from(movetext_node.named_child_count())
+            .expect("tree-sitter named child count exceeds u32");
+        for i in 0..named_child_count {
             if let Some(child) = movetext_node.named_child(i) {
                 let kind = child.kind();
                 if kind == "san_move" || kind == "lan_move" {
@@ -401,7 +404,7 @@ fn parse_game_node(game_node: &Node, source: &[u8]) -> Result<PgnGame, PgnError>
 pub struct PgnIter {
     source: String,
     tree: tree_sitter::Tree,
-    child_index: usize,
+    child_index: u32,
 }
 
 impl PgnIter {
@@ -431,7 +434,9 @@ impl PgnIter {
     pub fn raw_game_texts(&self) -> Vec<String> {
         let root = self.tree.root_node();
         let mut texts = Vec::new();
-        for i in 0..root.child_count() {
+        let child_count =
+            u32::try_from(root.child_count()).expect("tree-sitter child count exceeds u32");
+        for i in 0..child_count {
             if let Some(child) = root.child(i)
                 && child.kind() == "game"
             {
