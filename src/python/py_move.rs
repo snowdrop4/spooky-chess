@@ -7,6 +7,7 @@ use crate::position::Position;
 
 use super::py_position::PyPosition;
 
+/// A chess move using zero-based coordinates (origin at the bottom left).
 #[pyclass(name = "Move")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PyMove {
@@ -17,6 +18,7 @@ pub struct PyMove {
 #[pymethods]
 impl PyMove {
     #[staticmethod]
+    /// Create a move from zero-based coordinates (origin at the bottom left).
     pub fn from_rowcol(src_col: u8, src_row: u8, dst_col: u8, dst_row: u8) -> Self {
         PyMove {
             move_: Move::from_position(

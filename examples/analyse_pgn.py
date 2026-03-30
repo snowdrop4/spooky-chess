@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 from pathlib import Path
 
-import spooky_chess
+import spooky_chess as sc
 
 PGN_PATH = Path("pgn/example/scholars_mate.pgn")
 DEPTH = 10
 ENGINE_PATH = "stockfish"
 
 
-def print_analysis(position_index: int, result: spooky_chess.SearchResult) -> None:
+def print_analysis(position_index: int, result: sc.SearchResult) -> None:
     print(
         f"  position {position_index:>3}: "
         f"bestmove={result.best_move_lan} "
@@ -21,17 +19,16 @@ def print_analysis(position_index: int, result: spooky_chess.SearchResult) -> No
 
 
 def main() -> None:
-    games = spooky_chess.parse_pgn(PGN_PATH.read_text())
+    games = sc.parse_pgn(PGN_PATH.read_text())
     print(f"Loaded {len(games)} game(s) from {PGN_PATH}")
 
-    engine = spooky_chess.UciEngine(ENGINE_PATH)
+    engine = sc.UciEngine(ENGINE_PATH)
     engine.set_option("Hash", "32")
     engine.is_ready()
 
     try:
         for game_index, pgn_game in enumerate(games, start=1):
-            print()
-            print(f"Game {game_index}: {pgn_game.white() or '?'} vs {pgn_game.black() or '?'} ({pgn_game.result()})")
+            print(f"\nGame {game_index}: {pgn_game.white() or '?'} vs {pgn_game.black() or '?'} ({pgn_game.result()})")
 
             engine.set_position_pgn_start(pgn_game)
 

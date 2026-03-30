@@ -427,7 +427,7 @@ where
         self.board.hash(state);
     }
 
-    /// Returns the side to move.
+    /// Returns the side-to-move.
     pub fn turn(&self) -> Color {
         self.turn
     }

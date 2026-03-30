@@ -39,6 +39,16 @@ impl PyPgnGame {
         self.inner.headers.date().map(|s| s.to_string())
     }
 
+    pub fn set_header(&mut self, key: &str, value: &str) -> PyResult<()> {
+        self.inner
+            .set_header(key, value)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    pub fn remove_header(&mut self, key: &str) -> bool {
+        self.inner.remove_header(key)
+    }
+
     pub fn result(&self) -> String {
         self.inner.result.to_string()
     }
@@ -69,6 +79,10 @@ impl PyPgnGame {
         PyGame {
             inner: GameInner::W8H8(self.inner.final_game.clone()),
         }
+    }
+
+    pub fn to_pgn(&self) -> String {
+        self.inner.to_pgn()
     }
 
     pub fn __str__(&self) -> String {

@@ -3,6 +3,7 @@ use pyo3::types::PyType;
 
 use crate::position::Position;
 
+/// A zero-based board position (origin at the bottom left).
 #[pyclass(name = "Position")]
 #[derive(Clone, Copy, Debug)]
 pub struct PyPosition {
@@ -13,6 +14,7 @@ pub struct PyPosition {
 #[pymethods]
 impl PyPosition {
     #[new]
+    /// Create a position from zero-based coordinates (origin at the bottom left).
     pub fn new(col: u8, row: u8) -> Self {
         PyPosition {
             pos: Position::new(col, row),

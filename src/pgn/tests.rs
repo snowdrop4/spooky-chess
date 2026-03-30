@@ -151,6 +151,55 @@ fn test_headers_case_insensitive() {
 }
 
 #[test]
+fn test_headers_set_replaces_duplicates() {
+    let mut headers = PgnHeaders {
+        pairs: vec![
+            ("White".to_string(), "Kasparov".to_string()),
+            ("white".to_string(), "Duplicate".to_string()),
+        ],
+    };
+
+    headers.set("WHITE", "Carlsen");
+
+    assert_eq!(headers.get("white"), Some("Carlsen"));
+    assert_eq!(headers.pairs.len(), 1);
+    assert_eq!(headers.pairs[0].0, "White");
+}
+
+#[test]
+fn test_set_result_header_updates_result_token() {
+    let pgn = tournament_pgn!("scholars_mate.pgn");
+    let mut game =
+        parse_pgn_single_game(pgn).expect("test_set_result_header_updates_result_token: parse");
+
+    game.set_header("result", "0-1")
+        .expect("test_set_result_header_updates_result_token: set header");
+
+    assert_eq!(game.headers.result(), Some("0-1"));
+    assert_eq!(game.result, PgnResult::BlackWin);
+
+    let serialized = game.to_pgn();
+    assert!(serialized.contains("[Result \"0-1\"]"));
+    assert!(serialized.trim_end().ends_with("0-1"));
+}
+
+#[test]
+fn test_remove_header_removes_all_duplicates() {
+    let mut headers = PgnHeaders {
+        pairs: vec![
+            ("Site".to_string(), "A".to_string()),
+            ("site".to_string(), "B".to_string()),
+            ("Event".to_string(), "Match".to_string()),
+        ],
+    };
+
+    assert!(headers.remove("SITE"));
+    assert_eq!(headers.get("site"), None);
+    assert_eq!(headers.pairs.len(), 1);
+    assert_eq!(headers.pairs[0].0, "Event");
+}
+
+#[test]
 fn test_standard_start_helpers() {
     let pgn = tournament_pgn!("scholars_mate.pgn");
     let game =

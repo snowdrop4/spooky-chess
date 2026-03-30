@@ -12,6 +12,8 @@ wheels/
 
 # Virtual environments
 .venv/
+docs/_build/
+docs/_generated/
 
 # Pytest
 .pytest_cache/

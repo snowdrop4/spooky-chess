@@ -59,7 +59,35 @@ Includes type hints.
 
 # Examples
 
-These examples load a PGN, and ask Stockfish for the best move at every playable position.
+Quick start:
+
+Rust:
+
+```fish
+cargo run --example quick_start
+```
+
+Python:
+
+```fish
+uv run python examples/quick_start.py
+```
+
+More Rust examples:
+
+- `cargo run --example pgn_summary`
+- `cargo run --example legal_moves`
+- `cargo run --example action_encoding`
+- `cargo run --example custom_board`
+
+More Python examples:
+
+- `uv run python examples/pgn_summary.py`
+- `uv run python examples/legal_moves.py`
+- `uv run python examples/action_encoding.py`
+- `uv run python examples/custom_board.py`
+
+PGN + UCI analysis:
 
 Rust:
 
@@ -84,6 +112,10 @@ uv run python examples/analyse_pgn.py
 ### Lints
 
 - `fish run_lints.fish`
+
+### Docs
+
+- `uv run --with sphinx==9.1.0 python -m sphinx -b html -E docs docs/_build/html`
 
 ### Performance
 

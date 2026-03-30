@@ -3,7 +3,7 @@
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-/// A zero-based board position.
+/// A zero-based board position (origin at the bottom left).
 ///
 /// ```
 /// use spooky_chess::position::Position;
@@ -21,7 +21,7 @@ pub struct Position {
 
 #[hotpath::measure_all]
 impl Position {
-    /// Creates a position from zero-based coordinates.
+    /// Creates a position from zero-based coordinates (origin at the bottom left).
     pub fn new(col: u8, row: u8) -> Self {
         Position { col, row }
     }

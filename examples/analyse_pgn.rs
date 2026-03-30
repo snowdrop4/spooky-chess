@@ -1,3 +1,6 @@
+#![feature(generic_const_exprs)]
+#![allow(incomplete_features)]
+
 use std::error::Error;
 use std::fs;
 

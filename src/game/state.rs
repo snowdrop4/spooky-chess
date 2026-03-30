@@ -75,7 +75,7 @@ where
         self.is_square_attacked(&king_pos, color.opposite())
     }
 
-    /// Returns whether the side to move is in check.
+    /// Returns whether the side-to-move is in check.
     pub fn is_check(&self) -> bool {
         self.is_in_check(self.turn)
     }
@@ -84,12 +84,12 @@ where
         self.for_each_legal_move(|_mv| true)
     }
 
-    /// Returns whether the side to move is checkmated.
+    /// Returns whether the side-to-move is checkmated.
     pub fn is_checkmate(&mut self) -> bool {
         self.is_check() && !self.has_any_legal_move()
     }
 
-    /// Returns whether the side to move is stalemated.
+    /// Returns whether the side-to-move is stalemated.
     pub fn is_stalemate(&mut self) -> bool {
         !self.is_check() && !self.has_any_legal_move()
     }

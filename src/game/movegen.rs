@@ -161,7 +161,7 @@ where
         !in_check
     }
 
-    /// Returns all legal moves for the side to move.
+    /// Returns all legal moves for the side-to-move.
     pub fn legal_moves(&mut self) -> MoveList {
         let mut moves = MoveList::new();
         self.for_each_legal_move(|mv| {
@@ -430,7 +430,7 @@ where
         false
     }
 
-    /// Returns pseudo-legal moves for the side to move.
+    /// Returns pseudo-legal moves for the side-to-move.
     ///
     /// These moves may still leave the king in check.
     pub fn pseudo_legal_moves(&self) -> MoveList {

@@ -65,7 +65,7 @@ class Game:
         """Create the standard initial 8x8 chess position."""
 
     def turn(self) -> int:
-        """Return the side to move as `WHITE` or `BLACK`."""
+        """Return the side-to-move as `WHITE` or `BLACK`."""
 
     def fullmove_number(self) -> int:
         """Return the fullmove number."""
@@ -88,6 +88,12 @@ class Game:
     def make_move(self, move_: Move) -> bool:
         """Try to apply `move_`. Returns `True` if it is legal and applied."""
 
+    def make_move_from_lan(self, lan: str) -> bool:
+        """Parse LAN in the current position, then try to apply the move."""
+
+    def make_move_from_san(self, san: str) -> bool:
+        """Parse SAN in the current position, then try to apply the move."""
+
     def make_move_unchecked(self, move_: Move) -> None:
         """Apply a move that is already known to be legal."""
 
@@ -101,7 +107,7 @@ class Game:
         """Return whether `move_` is legal in the current position."""
 
     def legal_moves(self) -> list[Move]:
-        """Return all legal moves for the side to move."""
+        """Return all legal moves for the side-to-move."""
 
     def pseudo_legal_moves(self) -> list[Move]:
         """Return pseudo-legal moves from the current position. They may still leave the king in check."""
@@ -122,13 +128,13 @@ class Game:
         """Parse SAN in the current position."""
 
     def is_check(self) -> bool:
-        """Return whether the side to move is in check."""
+        """Return whether the side-to-move is in check."""
 
     def is_checkmate(self) -> bool:
-        """Return whether the side to move is checkmated."""
+        """Return whether the side-to-move is checkmated."""
 
     def is_stalemate(self) -> bool:
-        """Return whether the side to move is stalemated."""
+        """Return whether the side-to-move is stalemated."""
 
     def is_over(self) -> bool:
         """Return whether the game is over."""
@@ -220,7 +226,7 @@ class Move:
 
     @staticmethod
     def from_rowcol(src_col: int, src_row: int, dst_col: int, dst_row: int) -> Move:
-        """Create a move from zero-based coordinates."""
+        """Create a move from zero-based coordinates (origin at the bottom left)."""
 
     @classmethod
     def from_lan(cls, lan: str, board_width: int, board_height: int) -> Move:
@@ -307,10 +313,10 @@ class Piece:
     def __hash__(self) -> int: ...
 
 class Position:
-    """A zero-based board position."""
+    """A zero-based board position (origin at the bottom left)."""
 
     def __init__(self, col: int, row: int) -> None:
-        """Create a position from zero-based coordinates."""
+        """Create a position from zero-based coordinates (origin at the bottom left)."""
 
     @classmethod
     def from_algebraic(cls, s: str) -> Position:
@@ -386,10 +392,16 @@ class PgnGame:
     """A parsed PGN game."""
 
     def headers(self) -> dict[str, str]:
-        """Return raw PGN headers."""
+        """Return raw PGN headers as a new dict."""
 
     def header(self, key: str) -> str | None:
         """Return a header value by key, case-insensitively."""
+
+    def set_header(self, key: str, value: str) -> None:
+        """Set a header value by key, case-insensitively."""
+
+    def remove_header(self, key: str) -> bool:
+        """Remove all matching headers by key, case-insensitively."""
 
     def white(self) -> str | None:
         """Return the `White` header."""
@@ -421,6 +433,10 @@ class PgnGame:
     def game(self) -> Game:
         """Return the final board state after all moves."""
 
+    def to_pgn(self) -> str:
+        """Serialize the game back to PGN."""
+
+    def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
 class SearchResult:
@@ -515,7 +531,7 @@ class UciEngine:
         """Search for a time limit, apply the best move, and return it."""
 
     def turn(self) -> int:
-        """Return the side to move as `WHITE` or `BLACK`."""
+        """Return the side-to-move as `WHITE` or `BLACK`."""
 
     def fullmove_number(self) -> int:
         """Return the fullmove number."""
@@ -533,7 +549,7 @@ class UciEngine:
         """Return whether `color` may castle queenside."""
 
     def is_check(self) -> bool:
-        """Return whether the side to move is in check."""
+        """Return whether the side-to-move is in check."""
 
     def is_over(self) -> bool:
         """Return whether the game is over."""
@@ -545,10 +561,10 @@ class UciEngine:
         """Return the current turn state."""
 
     def is_checkmate(self) -> bool:
-        """Return whether the side to move is checkmated."""
+        """Return whether the side-to-move is checkmated."""
 
     def is_stalemate(self) -> bool:
-        """Return whether the side to move is stalemated."""
+        """Return whether the side-to-move is stalemated."""
 
     def is_insufficient_material(self) -> bool:
         """Return whether neither side has mating material."""

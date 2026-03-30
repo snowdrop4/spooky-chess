@@ -47,7 +47,7 @@ bitflags! {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-/// A chess move.
+/// A chess move using [`Position`] coordinates (origin at the bottom left).
 ///
 /// ```
 /// use spooky_chess::r#move::Move;
@@ -68,7 +68,7 @@ pub struct Move {
 
 #[hotpath::measure_all]
 impl Move {
-    /// Creates a move without promotion.
+    /// Creates a move without promotion using [`Position`] coordinates (origin at the bottom left).
     pub fn from_position(src: Position, dst: Position, flags: MoveFlags) -> Self {
         Move {
             src,
@@ -78,7 +78,7 @@ impl Move {
         }
     }
 
-    /// Creates a promotion move.
+    /// Creates a promotion move using [`Position`] coordinates (origin at the bottom left).
     pub fn from_position_with_promotion(
         src: Position,
         dst: Position,

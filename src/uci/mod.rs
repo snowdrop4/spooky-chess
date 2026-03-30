@@ -233,7 +233,7 @@ impl UciEngine {
         Ok(mv)
     }
 
-    /// Returns the side to move.
+    /// Returns the side-to-move.
     pub fn turn(&self) -> Color {
         self.game.turn()
     }
@@ -278,17 +278,17 @@ impl UciEngine {
         self.game.turn_state()
     }
 
-    /// Returns whether the side to move is in check.
+    /// Returns whether the side-to-move is in check.
     pub fn is_check(&self) -> bool {
         self.game.is_check()
     }
 
-    /// Returns whether the side to move is checkmated.
+    /// Returns whether the side-to-move is checkmated.
     pub fn is_checkmate(&mut self) -> bool {
         self.game.is_checkmate()
     }
 
-    /// Returns whether the side to move is stalemated.
+    /// Returns whether the side-to-move is stalemated.
     pub fn is_stalemate(&mut self) -> bool {
         self.game.is_stalemate()
     }

@@ -14,7 +14,7 @@ where
     ///
     /// Returns `true` if `mv` is legal in the current position and was
     /// applied. Returns `false` if the source square is empty, the piece is not
-    /// owned by the side to move, or the move is illegal.
+    /// owned by the side-to-move, or the move is illegal.
     pub fn make_move(&mut self, mv: &Move) -> bool {
         // Validate the move is from a piece of the correct color
         let piece = match self.board.get_piece(&mv.src) {
@@ -29,6 +29,18 @@ where
 
         self.apply_move(mv, &piece);
         true
+    }
+
+    /// Parses LAN in the current position, then tries to apply the move.
+    pub fn make_move_from_lan(&mut self, lan: &str) -> Result<bool, String> {
+        let mv = self.move_from_lan(lan)?;
+        Ok(self.make_move(&mv))
+    }
+
+    /// Parses SAN in the current position, then tries to apply the move.
+    pub fn make_move_from_san(&mut self, san: &str) -> Result<bool, String> {
+        let mv = self.move_from_san(san)?;
+        Ok(self.make_move(&mv))
     }
 
     /// Applies a move that is already known to be legal.

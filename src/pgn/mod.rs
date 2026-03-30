@@ -97,6 +97,40 @@ impl PgnHeaders {
     pub fn result(&self) -> Option<&str> {
         self.get("Result")
     }
+
+    /// Sets a header value by key, case-insensitively.
+    ///
+    /// If multiple copies of the same header exist, the first one is updated
+    /// in place and later duplicates are removed.
+    pub fn set(&mut self, key: &str, value: &str) {
+        let mut found = false;
+        let mut updated_pairs = Vec::with_capacity(self.pairs.len() + 1);
+
+        for (existing_key, existing_value) in self.pairs.drain(..) {
+            if existing_key.eq_ignore_ascii_case(key) {
+                if !found {
+                    updated_pairs.push((existing_key, value.to_string()));
+                    found = true;
+                }
+            } else {
+                updated_pairs.push((existing_key, existing_value));
+            }
+        }
+
+        if !found {
+            updated_pairs.push((key.to_string(), value.to_string()));
+        }
+
+        self.pairs = updated_pairs;
+    }
+
+    /// Removes all header values matching the key, case-insensitively.
+    pub fn remove(&mut self, key: &str) -> bool {
+        let original_len = self.pairs.len();
+        self.pairs
+            .retain(|(existing_key, _)| !existing_key.eq_ignore_ascii_case(key));
+        self.pairs.len() != original_len
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +191,23 @@ pub struct PgnGame {
 }
 
 impl PgnGame {
+    /// Sets a PGN header by key, case-insensitively.
+    ///
+    /// Updating the `Result` header also updates the parsed result token so
+    /// serialization keeps the header section and movetext result in sync.
+    pub fn set_header(&mut self, key: &str, value: &str) -> Result<(), PgnError> {
+        if key.eq_ignore_ascii_case("Result") {
+            self.result = PgnResult::from_str(value)?;
+        }
+        self.headers.set(key, value);
+        Ok(())
+    }
+
+    /// Removes all copies of a PGN header by key, case-insensitively.
+    pub fn remove_header(&mut self, key: &str) -> bool {
+        self.headers.remove(key)
+    }
+
     /// Returns the starting FEN if the PGN uses `SetUp`/`FEN`.
     pub fn starting_fen(&self) -> Option<&str> {
         if self.headers.get("SetUp") == Some("1") {

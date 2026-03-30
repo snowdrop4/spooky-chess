@@ -77,6 +77,20 @@ impl PyGame {
         Ok(dispatch_game!(&mut self.inner, g => g.make_move(&move_.move_)))
     }
 
+    pub fn make_move_from_lan(&mut self, lan: &str) -> PyResult<bool> {
+        dispatch_game!(&mut self.inner, g => {
+            g.make_move_from_lan(lan)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
+        })
+    }
+
+    pub fn make_move_from_san(&mut self, san: &str) -> PyResult<bool> {
+        dispatch_game!(&mut self.inner, g => {
+            g.make_move_from_san(san)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))
+        })
+    }
+
     /// Apply a move that is already known to be legal. Skips legality checking.
     /// Caller must guarantee the move came from `legal_moves()` or equivalent.
     pub fn make_move_unchecked(&mut self, move_: PyMove) {
