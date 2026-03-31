@@ -1,5 +1,8 @@
 from typing import Final
 
+import numpy as np
+import numpy.typing as npt
+
 WHITE: Final[int]
 """Side-to-move constant for White."""
 
@@ -32,6 +35,21 @@ NUM_UNDERPROMO_PIECES: Final[int]
 
 NUM_PROMOTION_ORIENTATIONS: Final[int]
 """Number of promotion orientations."""
+
+def augment_symmetries(
+    states: npt.NDArray[np.float32],
+    policies: npt.NDArray[np.float32],
+    values: npt.NDArray[np.float32],
+    opponent_policies: npt.NDArray[np.float32],
+    opponent_policy_masks: npt.NDArray[np.float32],
+) -> tuple[
+    npt.NDArray[np.float32],
+    npt.NDArray[np.float32],
+    npt.NDArray[np.float32],
+    npt.NDArray[np.float32],
+    npt.NDArray[np.float32],
+]:
+    """Augment a chess training batch with its horizontal mirror."""
 
 def parse_pgn(pgn: str) -> list[PgnGame]:
     """Parse one or more PGN games from a string."""

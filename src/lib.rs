@@ -43,6 +43,7 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyUciEngine>()?;
     m.add_class::<PySearchResult>()?;
     m.add_function(wrap_pyfunction!(py_parse_pgn, m)?)?;
+    m.add_function(wrap_pyfunction!(augment_symmetries, m)?)?;
     m.add("WHITE", Color::White as i8)?;
     m.add("BLACK", Color::Black as i8)?;
     m.add("TOTAL_INPUT_PLANES", encode::TOTAL_INPUT_PLANES)?;

@@ -13,6 +13,7 @@ mod py_piece;
 mod py_position;
 mod py_turn_state;
 mod py_uci;
+mod symmetry;
 
 pub use py_game::PyGame;
 pub use py_move::PyMove;
@@ -22,6 +23,7 @@ pub use py_piece::PyPiece;
 pub use py_position::PyPosition;
 pub use py_turn_state::PyTurnState;
 pub use py_uci::{PySearchResult, PyUciEngine};
+pub use symmetry::augment_symmetries;
 
 pub(crate) fn validate_dimensions(width: usize, height: usize) -> PyResult<()> {
     limits::validate_board_dimensions(width, height)
