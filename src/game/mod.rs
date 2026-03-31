@@ -6,6 +6,7 @@ use smallvec::SmallVec;
 use crate::bitboard::BoardGeometry;
 use crate::board::Board;
 use crate::color::Color;
+use crate::encode::HISTORY_LENGTH;
 use crate::limits::validate_board_dimensions;
 use crate::r#move::Move;
 use crate::pieces::{Piece, PieceType};
@@ -31,7 +32,9 @@ mod tests_san;
 #[cfg(test)]
 mod tests_actions;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+const STATE_HASH_HISTORY_LENGTH: usize = HISTORY_LENGTH - 1;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// Piece counts grouped by type and color.
 pub struct PieceCounts {
     /// counts[piece_type as usize][color_index] where color_index: White=0, Black=1
@@ -107,7 +110,7 @@ impl PieceCounts {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A reversible move-history entry.
 pub struct MoveHistoryEntry {
     /// The move that was applied.
@@ -117,6 +120,34 @@ pub struct MoveHistoryEntry {
     en_passant: Option<Position>,
     halfmove_clock: u32,
     piece_counts: PieceCounts,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StateHash<const W: usize, const H: usize>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    board: Board<W, H>,
+    turn: Color,
+    castling_rights: CastlingRights,
+    castling_enabled: bool,
+    en_passant: Option<Position>,
+    halfmove_clock: u32,
+    fullmove_number: u32,
+    recent_move_history: Vec<MoveHistoryEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TranspositionHash<const W: usize, const H: usize>
+where
+    [(); (W * H).div_ceil(64)]:,
+{
+    board: Board<W, H>,
+    turn: Color,
+    castling_rights: CastlingRights,
+    castling_enabled: bool,
+    en_passant: Option<Position>,
+    halfmove_clock: u32,
 }
 
 #[derive(Clone)]
@@ -419,6 +450,35 @@ where
     /// Returns the applied move history.
     pub fn move_history(&self) -> &[MoveHistoryEntry] {
         &self.move_history
+    }
+
+    pub fn state_hash(&self) -> StateHash<W, H> {
+        let recent_history_start = self
+            .move_history
+            .len()
+            .saturating_sub(STATE_HASH_HISTORY_LENGTH);
+
+        StateHash {
+            board: self.board.clone(),
+            turn: self.turn,
+            castling_rights: self.castling_rights,
+            castling_enabled: self.castling_enabled,
+            en_passant: self.en_passant,
+            halfmove_clock: self.halfmove_clock,
+            fullmove_number: self.fullmove_number,
+            recent_move_history: self.move_history[recent_history_start..].to_vec(),
+        }
+    }
+
+    pub fn transposition_hash(&self) -> TranspositionHash<W, H> {
+        TranspositionHash {
+            board: self.board.clone(),
+            turn: self.turn,
+            castling_rights: self.castling_rights,
+            castling_enabled: self.castling_enabled,
+            en_passant: self.en_passant,
+            halfmove_clock: self.halfmove_clock,
+        }
     }
 
     /// Returns whether castling rules are enabled.

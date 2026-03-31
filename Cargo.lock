@@ -1655,7 +1655,7 @@ dependencies = [
 
 [[package]]
 name = "spooky_chess"
-version = "0.10.0"
+version = "0.10.2"
 dependencies = [
  "arrayvec",
  "bitflags",

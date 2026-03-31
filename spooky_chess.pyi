@@ -187,6 +187,12 @@ class Game:
     def clone(self) -> Game:
         """Return a copy of the game."""
 
+    def state_hash(self) -> int:
+        """Return a hash of the full game state, including history-conditioned NN state."""
+
+    def transposition_hash(self) -> int:
+        """Return a hash of the full game state, but without any move history."""
+
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
     def __hash__(self) -> int: ...

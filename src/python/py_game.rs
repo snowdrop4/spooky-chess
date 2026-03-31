@@ -331,6 +331,24 @@ impl PyGame {
         }
     }
 
+    pub fn state_hash(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        dispatch_game!(&self.inner, g => {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            g.state_hash().hash(&mut hasher);
+            hasher.finish()
+        })
+    }
+
+    pub fn transposition_hash(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        dispatch_game!(&self.inner, g => {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            g.transposition_hash().hash(&mut hasher);
+            hasher.finish()
+        })
+    }
+
     pub fn __eq__(&self, other: &PyGame) -> bool {
         // Width and height are encoded in the enum variant, so different
         // dimensions are always unequal. For same dimensions, we compare
