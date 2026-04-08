@@ -1,10 +1,15 @@
 //! Neural-network state and action encoders.
 
+use std::cmp::Reverse;
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
 use crate::color::Color;
 use crate::directions::{KNIGHT_DELTAS, direction_index};
 use crate::game::Game;
-use crate::r#move::Move;
+use crate::r#move::{Move, MoveFlags};
 use crate::pieces::PieceType;
+use crate::position::Position;
 
 /// Number of piece planes per history step: 6 for white and 6 for black.
 pub const PIECE_PLANES: usize = 6 + 6;
@@ -31,14 +36,149 @@ pub const NUM_UNDERPROMO_DIRECTIONS: usize = 3;
 /// Number of underpromotion piece types: knight, bishop, and rook.
 pub const NUM_UNDERPROMO_PIECES: usize = 3;
 
-/// Number of promotion orientations: forward and backward.
-pub const NUM_PROMOTION_ORIENTATIONS: usize = 2;
+/// Number of underpromotion orientations in AlphaZero's action space.
+///
+/// AlphaZero normalizes moves into the current side-to-move's frame, so there
+/// is only one forward underpromotion orientation.
+pub const NUM_PROMOTION_ORIENTATIONS: usize = 1;
+
+/// Total MAIA2 action indices for standard 8x8 chess.
+pub const MAIA2_TOTAL_ACTIONS_STANDARD: usize = 1880;
 
 /// Normalization divisor for fullmove number in the NN input planes.
 const FULLMOVE_SCALE: f32 = 100.0;
 
 /// Normalization divisor for halfmove clock (no-progress count) in the NN input planes.
 const HALFMOVE_SCALE: f32 = 50.0;
+
+const STANDARD_BOARD_SIZE: usize = 8;
+
+struct Maia2ActionTable {
+    moves: Vec<String>,
+    indices: HashMap<String, usize>,
+}
+
+static MAIA2_ACTION_TABLE: OnceLock<Maia2ActionTable> = OnceLock::new();
+
+fn is_standard_board(width: usize, height: usize) -> bool {
+    width == STANDARD_BOARD_SIZE && height == STANDARD_BOARD_SIZE
+}
+
+fn mirror_position_vertically(pos: Position, height: usize) -> Position {
+    Position::new(pos.col, (height - 1 - usize::from(pos.row)) as u8)
+}
+
+fn mirror_move_for_turn(move_: &Move, turn: Color, height: usize) -> Move {
+    if turn == Color::White {
+        *move_
+    } else {
+        Move {
+            src: mirror_position_vertically(move_.src, height),
+            dst: mirror_position_vertically(move_.dst, height),
+            flags: move_.flags,
+            promotion: move_.promotion,
+        }
+    }
+}
+
+fn build_maia2_action_table() -> Maia2ActionTable {
+    const QUEEN_DELTAS: [(i32, i32); 8] = [
+        (0, 1),
+        (1, 1),
+        (1, 0),
+        (1, -1),
+        (0, -1),
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+    ];
+    const MAIA2_PROMOTION_ORDER: [PieceType; 4] = [
+        PieceType::Queen,
+        PieceType::Rook,
+        PieceType::Bishop,
+        PieceType::Knight,
+    ];
+
+    let mut moves = Vec::with_capacity(MAIA2_TOTAL_ACTIONS_STANDARD);
+
+    for row in 0..STANDARD_BOARD_SIZE {
+        for col in 0..STANDARD_BOARD_SIZE {
+            let src = Position::from_usize(col, row);
+
+            let mut queen_targets = Vec::new();
+            for (dx, dy) in QUEEN_DELTAS {
+                let mut dst_col = col as i32 + dx;
+                let mut dst_row = row as i32 + dy;
+                while (0..STANDARD_BOARD_SIZE as i32).contains(&dst_col)
+                    && (0..STANDARD_BOARD_SIZE as i32).contains(&dst_row)
+                {
+                    queen_targets.push(Position::new(dst_col as u8, dst_row as u8));
+                    dst_col += dx;
+                    dst_row += dy;
+                }
+            }
+            queen_targets.sort_by_key(|pos| Reverse(pos.to_index(STANDARD_BOARD_SIZE)));
+            for dst in queen_targets {
+                moves.push(Move::from_position(src, dst, MoveFlags::empty()).to_lan());
+            }
+
+            let mut knight_targets: Vec<_> = KNIGHT_DELTAS
+                .iter()
+                .filter_map(|&(dx, dy)| {
+                    let dst_col = col as i32 + dx;
+                    let dst_row = row as i32 + dy;
+                    ((0..STANDARD_BOARD_SIZE as i32).contains(&dst_col)
+                        && (0..STANDARD_BOARD_SIZE as i32).contains(&dst_row))
+                    .then(|| Position::new(dst_col as u8, dst_row as u8))
+                })
+                .collect();
+            knight_targets.sort_by_key(|pos| Reverse(pos.to_index(STANDARD_BOARD_SIZE)));
+            for dst in knight_targets {
+                moves.push(Move::from_position(src, dst, MoveFlags::empty()).to_lan());
+            }
+        }
+    }
+
+    for file in b'a'..=b'h' {
+        let src_file = file as char;
+
+        for piece in MAIA2_PROMOTION_ORDER {
+            moves.push(format!("{src_file}7{src_file}8{}", piece.to_char()));
+        }
+
+        if file != b'a' {
+            let left_file = (file - 1) as char;
+            for piece in MAIA2_PROMOTION_ORDER {
+                moves.push(format!("{src_file}7{left_file}8{}", piece.to_char()));
+            }
+        }
+
+        if file != b'h' {
+            let right_file = (file + 1) as char;
+            for piece in MAIA2_PROMOTION_ORDER {
+                moves.push(format!("{src_file}7{right_file}8{}", piece.to_char()));
+            }
+        }
+    }
+
+    debug_assert_eq!(
+        moves.len(),
+        MAIA2_TOTAL_ACTIONS_STANDARD,
+        "unexpected MAIA2 action count",
+    );
+
+    let indices = moves
+        .iter()
+        .enumerate()
+        .map(|(idx, move_uci)| (move_uci.clone(), idx))
+        .collect();
+
+    Maia2ActionTable { moves, indices }
+}
+
+fn maia2_action_table() -> &'static Maia2ActionTable {
+    MAIA2_ACTION_TABLE.get_or_init(build_maia2_action_table)
+}
 
 /// Encodes the full game state into a flat `f32` array.
 ///
@@ -252,12 +392,20 @@ fn fill_chess_planes<const W: usize, const H: usize>(
     }
 }
 
-/// Encodes a move as a full action index: `plane * board_size + src_index`.
+/// Encodes a move using AlphaZero's side-to-move-oriented action space.
+///
+/// Black-to-move positions are mirrored vertically so that pawn advances always
+/// move "forward" in the shared policy vocabulary.
 #[hotpath::measure]
-pub fn encode_action(move_: &Move, width: usize, height: usize) -> Option<usize> {
+pub fn encode_alphazero_action(
+    move_: &Move,
+    turn: Color,
+    width: usize,
+    height: usize,
+) -> Option<usize> {
     debug_assert!(
         usize::from(move_.src.col) < width && usize::from(move_.src.row) < height,
-        "encode_action: move src ({},{}) out of bounds for {}x{} board",
+        "encode_alphazero_action: move src ({},{}) out of bounds for {}x{} board",
         move_.src.col,
         move_.src.row,
         width,
@@ -265,32 +413,143 @@ pub fn encode_action(move_: &Move, width: usize, height: usize) -> Option<usize>
     );
     debug_assert!(
         usize::from(move_.dst.col) < width && usize::from(move_.dst.row) < height,
-        "encode_action: move dst ({},{}) out of bounds for {}x{} board",
+        "encode_alphazero_action: move dst ({},{}) out of bounds for {}x{} board",
         move_.dst.col,
         move_.dst.row,
         width,
         height,
     );
-    let plane = encode_move_plane(move_, width, height)?;
+
+    if !move_.src.is_valid(width, height) || !move_.dst.is_valid(width, height) {
+        return None;
+    }
+
+    let normalized_move = mirror_move_for_turn(move_, turn, height);
+    let plane = encode_alphazero_move_plane(&normalized_move, width, height)?;
     let board_size = width * height;
-    let src_index = usize::from(move_.src.row) * width + usize::from(move_.src.col);
+    let src_index =
+        usize::from(normalized_move.src.row) * width + usize::from(normalized_move.src.col);
     Some(plane * board_size + src_index)
 }
 
-/// Returns the total number of action indices for a board size.
+/// Decodes an AlphaZero action index into a move.
+///
+/// The decoded move is mirrored back into the current side-to-move's board
+/// orientation.
 #[hotpath::measure]
-pub fn get_total_actions(width: usize, height: usize) -> usize {
-    get_move_planes_count(width, height) * width * height
+pub(crate) fn decode_alphazero_action(
+    action: usize,
+    turn: Color,
+    width: usize,
+    height: usize,
+) -> Option<Move> {
+    let board_size = width * height;
+    let plane_idx = action / board_size;
+    let src_index = action % board_size;
+    let src_col = src_index % width;
+    let src_row = src_index / width;
+
+    let (dx, dy, promo) = decode_alphazero_move_plane(plane_idx, width, height)?;
+
+    let dst_col_i = src_col as i32 + dx;
+    let dst_row_i = src_row as i32 + dy;
+    if dst_col_i < 0 || dst_row_i < 0 {
+        return None;
+    }
+
+    let (dst_col, dst_row) = (dst_col_i as usize, dst_row_i as usize);
+    if dst_col >= width || dst_row >= height {
+        return None;
+    }
+
+    let normalized_move = Move {
+        src: Position::from_usize(src_col, src_row),
+        dst: Position::from_usize(dst_col, dst_row),
+        flags: MoveFlags::empty(),
+        promotion: promo,
+    };
+    Some(mirror_move_for_turn(&normalized_move, turn, height))
 }
 
-/// Encode a move as a plane index for the policy head
-/// Move planes encode the movement pattern:
+/// Encodes a move using MAIA2's white-oriented action space.
+///
+/// Only standard 8x8 chess is supported. Black-to-move positions are mirrored
+/// vertically before indexing into the shared white-oriented vocabulary.
+///
+/// Returns `None` on non-standard boards or for moves outside MAIA2's
+/// vocabulary.
+#[hotpath::measure]
+pub fn encode_maia2_action(
+    move_: &Move,
+    turn: Color,
+    width: usize,
+    height: usize,
+) -> Option<usize> {
+    if !is_standard_board(width, height)
+        || !move_.src.is_valid(width, height)
+        || !move_.dst.is_valid(width, height)
+    {
+        return None;
+    }
+
+    let maia2_move = mirror_move_for_turn(move_, turn, STANDARD_BOARD_SIZE);
+    let maia2_lan = maia2_move.to_lan();
+    maia2_action_table()
+        .indices
+        .get(maia2_lan.as_str())
+        .copied()
+}
+
+/// Decodes a MAIA2 action index into a move.
+///
+/// The returned move is mirrored back into the current side-to-move's
+/// orientation. Only standard 8x8 chess is supported.
+///
+/// Returns `None` for non-standard boards or out-of-range action indices.
+#[hotpath::measure]
+pub fn decode_maia2_action(
+    action: usize,
+    turn: Color,
+    width: usize,
+    height: usize,
+) -> Option<Move> {
+    if !is_standard_board(width, height) {
+        return None;
+    }
+
+    let maia2_lan = maia2_action_table().moves.get(action)?;
+    let maia2_move = Move::from_lan(maia2_lan, STANDARD_BOARD_SIZE, STANDARD_BOARD_SIZE).ok()?;
+    Some(mirror_move_for_turn(&maia2_move, turn, STANDARD_BOARD_SIZE))
+}
+
+/// Returns the total number of AlphaZero action indices for a board size.
+#[hotpath::measure]
+pub fn get_alphazero_total_actions(width: usize, height: usize) -> usize {
+    get_alphazero_move_planes_count(width, height) * width * height
+}
+
+/// Returns the MAIA2 action count for a board size.
+///
+/// Only standard 8x8 chess is supported.
+#[hotpath::measure]
+pub fn get_maia2_total_actions(width: usize, height: usize) -> Option<usize> {
+    is_standard_board(width, height).then_some(MAIA2_TOTAL_ACTIONS_STANDARD)
+}
+
+/// Encode a move as an AlphaZero move-plane index.
+///
+/// The move must already be normalized into the side-to-move's frame.
+/// AlphaZero move planes encode:
 /// - Horizontal/vertical/diagonal moves, for all non-knight pieces,
 ///   in 8 directions (N, NE, E, SE, S, SW, W, NW) up to max distance
 /// - L-shaped moves for knights, in 8 directions
-/// - Underpromotions (3 directions × 3 piece types, excluding queen)
+/// - Forward underpromotions (3 directions × 3 piece types, excluding queen)
 #[hotpath::measure]
-pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Option<usize> {
+pub(crate) fn encode_alphazero_move_plane(
+    move_: &Move,
+    width: usize,
+    height: usize,
+) -> Option<usize> {
     let src = move_.src;
     let dst = move_.dst;
     let dx = dst.col as i32 - src.col as i32;
@@ -306,11 +565,12 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
         }
     }
 
-    // Underpromotions (only for non-queen promotions)
-    // Note: underpromotions are forward by 1 row only (dy = ±1 depending on perspective)
+    // Underpromotions (only for non-queen promotions).
+    // The move has already been normalized into the current player's
+    // perspective, so underpromotions are always a single forward step.
     if let Some(promo) = move_.promotion
         && promo != PieceType::Queen
-        && dy.abs() == 1
+        && dy == 1
     {
         let direction_idx = if dx == -1 {
             0 // left diagonal
@@ -329,20 +589,9 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
             _ => return None,
         };
 
-        // Store which direction (forward/backward) in the encoding
         let knight_planes_start = NUM_DIRECTIONS * max_distance;
         let underpromo_planes_start = knight_planes_start + NUM_KNIGHT_DELTAS;
-        let dir_offset = if dy > 0 {
-            0
-        } else {
-            NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES
-        };
-        return Some(
-            underpromo_planes_start
-                + dir_offset
-                + direction_idx * NUM_UNDERPROMO_PIECES
-                + piece_idx,
-        );
+        return Some(underpromo_planes_start + direction_idx * NUM_UNDERPROMO_PIECES + piece_idx);
     }
 
     // Horizontal/vertical/diagonal moves for all non-knight pieces
@@ -366,10 +615,9 @@ pub(crate) fn encode_move_plane(move_: &Move, width: usize, height: usize) -> Op
     })
 }
 
-/// Decode a plane index back to move deltas
-/// Returns (dx, dy, promotion) for the given plane index and board dimensions
+/// Decode an AlphaZero move plane back to normalized move deltas.
 #[hotpath::measure]
-pub(crate) fn decode_move_plane(
+pub(crate) fn decode_alphazero_move_plane(
     plane_idx: usize,
     width: usize,
     height: usize,
@@ -406,18 +654,10 @@ pub(crate) fn decode_move_plane(
     } else {
         // Underpromotion
         let underpromo_idx = plane_idx - underpromo_planes_start;
-        let total_underpromo_planes =
-            NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES * NUM_PROMOTION_ORIENTATIONS;
+        let total_underpromo_planes = NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES;
         if underpromo_idx < total_underpromo_planes {
-            let forward_underpromo_planes = NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES;
-            let dy = if underpromo_idx < forward_underpromo_planes {
-                1
-            } else {
-                -1
-            };
-            let idx_within_direction = underpromo_idx % forward_underpromo_planes;
-            let direction_idx = idx_within_direction / NUM_UNDERPROMO_PIECES;
-            let piece_idx = idx_within_direction % NUM_UNDERPROMO_PIECES;
+            let direction_idx = underpromo_idx / NUM_UNDERPROMO_PIECES;
+            let piece_idx = underpromo_idx % NUM_UNDERPROMO_PIECES;
 
             let dx = match direction_idx {
                 0 => -1, // left diagonal
@@ -433,21 +673,20 @@ pub(crate) fn decode_move_plane(
                 _ => return None,
             };
 
-            Some((dx, dy, promo))
+            Some((dx, 1, promo))
         } else {
             None
         }
     }
 }
 
-/// Returns the total number of move-policy planes for a board size.
+/// Returns the total number of AlphaZero move-policy planes for a board size.
 #[hotpath::measure]
-pub fn get_move_planes_count(width: usize, height: usize) -> usize {
+pub fn get_alphazero_move_planes_count(width: usize, height: usize) -> usize {
     let max_distance = width.max(height) - 1;
     let straight_diagonal_planes = NUM_DIRECTIONS * max_distance;
     let knight_planes = NUM_KNIGHT_DELTAS;
-    let underpromo_planes =
-        NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES * NUM_PROMOTION_ORIENTATIONS;
+    let underpromo_planes = NUM_UNDERPROMO_DIRECTIONS * NUM_UNDERPROMO_PIECES;
 
     straight_diagonal_planes + knight_planes + underpromo_planes
 }
@@ -517,58 +756,58 @@ mod tests {
     }
 
     #[test]
-    fn test_encode_move_plane_horizontal_vertical() {
+    fn test_encode_alphazero_move_plane_horizontal_vertical() {
         use crate::r#move::MoveFlags;
 
         // Test vertical move (rook moving north)
         let move_north =
             Move::from_position(Position::new(3, 0), Position::new(3, 4), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_north, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_north, 8, 8);
         assert_eq!(encoded, Some(3)); // North direction, distance 4
 
         // Test horizontal move (rook moving east)
         let move_east =
             Move::from_position(Position::new(0, 3), Position::new(5, 3), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_east, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_east, 8, 8);
         assert_eq!(encoded, Some(2 * 7 + 4)); // East direction, distance 5
     }
 
     #[test]
-    fn test_encode_move_plane_diagonal() {
+    fn test_encode_alphazero_move_plane_diagonal() {
         use crate::r#move::MoveFlags;
 
         // Test diagonal move (bishop moving NE)
         let move_ne =
             Move::from_position(Position::new(1, 1), Position::new(4, 4), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_ne, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_ne, 8, 8);
         assert_eq!(encoded, Some(7 + 2)); // NE direction, distance 3
 
         // Test diagonal move (bishop moving SW)
         let move_sw =
             Move::from_position(Position::new(5, 5), Position::new(3, 3), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_sw, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_sw, 8, 8);
         assert_eq!(encoded, Some(5 * 7 + 1)); // SW direction, distance 2
     }
 
     #[test]
-    fn test_encode_move_plane_knight() {
+    fn test_encode_alphazero_move_plane_knight() {
         use crate::r#move::MoveFlags;
 
         // Test knight move (1, 2)
         let move_knight =
             Move::from_position(Position::new(3, 3), Position::new(4, 5), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_knight, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_knight, 8, 8);
         assert_eq!(encoded, Some(8 * 7)); // First knight pattern
 
         // Test knight move (2, -1)
         let move_knight2 =
             Move::from_position(Position::new(3, 3), Position::new(5, 2), MoveFlags::empty());
-        let encoded = encode_move_plane(&move_knight2, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_knight2, 8, 8);
         assert_eq!(encoded, Some(8 * 7 + 2)); // Third knight pattern
     }
 
     #[test]
-    fn test_encode_move_plane_underpromotion() {
+    fn test_encode_alphazero_move_plane_underpromotion() {
         use crate::r#move::MoveFlags;
 
         // Test straight underpromotion to knight (forward)
@@ -578,7 +817,7 @@ mod tests {
             MoveFlags::PROMOTION,
             PieceType::Knight,
         );
-        let encoded = encode_move_plane(&move_promo, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_promo, 8, 8);
         assert_eq!(encoded, Some((8 * 7 + 8) + 3)); // Forward, straight, knight
 
         // Test diagonal underpromotion to rook (forward)
@@ -588,22 +827,27 @@ mod tests {
             MoveFlags::PROMOTION,
             PieceType::Rook,
         );
-        let encoded = encode_move_plane(&move_promo2, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_promo2, 8, 8);
         assert_eq!(encoded, Some((8 * 7 + 8) + 2 * 3 + 2)); // Forward, right diagonal, rook
-
-        // Test straight underpromotion to bishop (backward)
-        let move_promo3 = Move::from_position_with_promotion(
-            Position::new(3, 1),
-            Position::new(3, 0),
-            MoveFlags::PROMOTION,
-            PieceType::Bishop,
-        );
-        let encoded = encode_move_plane(&move_promo3, 8, 8);
-        assert_eq!(encoded, Some(8 * 7 + 8 + 9 + 3 + 1)); // Backward, straight, bishop
     }
 
     #[test]
-    fn test_encode_move_plane_queen_promotion() {
+    fn test_alphazero_action_black_underpromotion_is_mirrored() {
+        let white_move =
+            Move::from_lan("d7d8b", 8, 8).expect("failed to parse white underpromotion");
+        let black_move =
+            Move::from_lan("d2d1b", 8, 8).expect("failed to parse black underpromotion");
+
+        let white_action = encode_alphazero_action(&white_move, Color::White, 8, 8)
+            .expect("failed to encode white underpromotion");
+        let black_action = encode_alphazero_action(&black_move, Color::Black, 8, 8)
+            .expect("failed to encode mirrored black underpromotion");
+
+        assert_eq!(white_action, black_action);
+    }
+
+    #[test]
+    fn test_encode_alphazero_move_plane_queen_promotion() {
         use crate::r#move::MoveFlags;
 
         // Queen promotions should use regular straight/diagonal encoding
@@ -613,64 +857,60 @@ mod tests {
             MoveFlags::PROMOTION,
             PieceType::Queen,
         );
-        let encoded = encode_move_plane(&move_promo, 8, 8);
+        let encoded = encode_alphazero_move_plane(&move_promo, 8, 8);
         assert_eq!(encoded, Some(0)); // North direction, distance 1
     }
 
     #[test]
-    fn test_decode_move_plane_horizontal_vertical() {
+    fn test_decode_alphazero_move_plane_horizontal_vertical() {
         // North, distance 4
-        let decoded = decode_move_plane(3, 8, 8);
+        let decoded = decode_alphazero_move_plane(3, 8, 8);
         assert_eq!(decoded, Some((0, 4, None)));
 
         // East, distance 5
-        let decoded = decode_move_plane(2 * 7 + 4, 8, 8);
+        let decoded = decode_alphazero_move_plane(2 * 7 + 4, 8, 8);
         assert_eq!(decoded, Some((5, 0, None)));
 
         // South, distance 2
-        let decoded = decode_move_plane(4 * 7 + 1, 8, 8);
+        let decoded = decode_alphazero_move_plane(4 * 7 + 1, 8, 8);
         assert_eq!(decoded, Some((0, -2, None)));
     }
 
     #[test]
-    fn test_decode_move_plane_diagonal() {
+    fn test_decode_alphazero_move_plane_diagonal() {
         // NE, distance 3
-        let decoded = decode_move_plane(7 + 2, 8, 8);
+        let decoded = decode_alphazero_move_plane(7 + 2, 8, 8);
         assert_eq!(decoded, Some((3, 3, None)));
 
         // SW, distance 2
-        let decoded = decode_move_plane(5 * 7 + 1, 8, 8);
+        let decoded = decode_alphazero_move_plane(5 * 7 + 1, 8, 8);
         assert_eq!(decoded, Some((-2, -2, None)));
     }
 
     #[test]
-    fn test_decode_move_plane_knight() {
+    fn test_decode_alphazero_move_plane_knight() {
         // First knight pattern (1, 2)
-        let decoded = decode_move_plane(8 * 7, 8, 8);
+        let decoded = decode_alphazero_move_plane(8 * 7, 8, 8);
         assert_eq!(decoded, Some((1, 2, None)));
 
         // Third knight pattern (2, -1)
-        let decoded = decode_move_plane(8 * 7 + 2, 8, 8);
+        let decoded = decode_alphazero_move_plane(8 * 7 + 2, 8, 8);
         assert_eq!(decoded, Some((2, -1, None)));
     }
 
     #[test]
-    fn test_decode_move_plane_underpromotion() {
+    fn test_decode_alphazero_move_plane_underpromotion() {
         // Forward, straight, knight
-        let decoded = decode_move_plane(8 * 7 + 8 + 3, 8, 8);
+        let decoded = decode_alphazero_move_plane(8 * 7 + 8 + 3, 8, 8);
         assert_eq!(decoded, Some((0, 1, Some(PieceType::Knight))));
 
         // Forward, right diagonal, rook
-        let decoded = decode_move_plane(8 * 7 + 8 + 2 * 3 + 2, 8, 8);
+        let decoded = decode_alphazero_move_plane(8 * 7 + 8 + 2 * 3 + 2, 8, 8);
         assert_eq!(decoded, Some((1, 1, Some(PieceType::Rook))));
-
-        // Backward, straight, bishop
-        let decoded = decode_move_plane(8 * 7 + 8 + 9 + 3 + 1, 8, 8);
-        assert_eq!(decoded, Some((0, -1, Some(PieceType::Bishop))));
     }
 
     #[test]
-    fn test_encode_decode_roundtrip() {
+    fn test_encode_decode_alphazero_move_plane_roundtrip() {
         use crate::r#move::MoveFlags;
 
         let moves = vec![
@@ -686,8 +926,9 @@ mod tests {
         ];
 
         for move_ in moves {
-            let encoded = encode_move_plane(&move_, 8, 8).expect("Failed to encode move");
-            let (dx, dy, promo) = decode_move_plane(encoded, 8, 8).expect("Failed to decode");
+            let encoded = encode_alphazero_move_plane(&move_, 8, 8).expect("Failed to encode move");
+            let (dx, dy, promo) =
+                decode_alphazero_move_plane(encoded, 8, 8).expect("Failed to decode");
 
             assert_eq!(dx, move_.dst.col as i32 - move_.src.col as i32);
             assert_eq!(dy, move_.dst.row as i32 - move_.src.row as i32);
@@ -696,24 +937,258 @@ mod tests {
     }
 
     #[test]
-    fn test_get_move_planes_count() {
-        // For 2x2 board: (8 * 1) + 8 + 18 = 34
-        assert_eq!(get_move_planes_count(2, 2), 34);
+    fn test_get_alphazero_move_planes_count() {
+        // For 2x2 board: (8 * 1) + 8 + 9 = 25
+        assert_eq!(get_alphazero_move_planes_count(2, 2), 25);
 
-        // For 6x6 board: (8 * 5) + 8 + 18 = 66
-        assert_eq!(get_move_planes_count(6, 6), 66);
+        // For 6x6 board: (8 * 5) + 8 + 9 = 57
+        assert_eq!(get_alphazero_move_planes_count(6, 6), 57);
 
-        // For 8x8 board: (8 * 7) + 8 + 18 = 82
-        assert_eq!(get_move_planes_count(8, 8), 82);
+        // For 8x8 board: (8 * 7) + 8 + 9 = 73
+        assert_eq!(get_alphazero_move_planes_count(8, 8), 73);
     }
 
     #[test]
-    fn test_get_total_actions() {
-        // For 8x8 board: 82 * 64 = 5248
-        assert_eq!(get_total_actions(8, 8), 5248);
+    fn test_get_alphazero_total_actions() {
+        // For 8x8 board: 73 * 64 = 4672
+        assert_eq!(get_alphazero_total_actions(8, 8), 4672);
 
-        // For 6x6 board: 66 * 36 = 2376
-        assert_eq!(get_total_actions(6, 6), 2376);
+        // For 6x6 board: 57 * 36 = 2052
+        assert_eq!(get_alphazero_total_actions(6, 6), 2052);
+    }
+
+    #[test]
+    fn test_alphazero_action_black_mirroring() {
+        let white_move =
+            Move::from_lan("e2e4", 8, 8).expect("failed to parse white AlphaZero move");
+        let black_move =
+            Move::from_lan("e7e5", 8, 8).expect("failed to parse black AlphaZero move");
+        let white_action = encode_alphazero_action(&white_move, Color::White, 8, 8)
+            .expect("failed to encode white AlphaZero action");
+        let black_action = encode_alphazero_action(&black_move, Color::Black, 8, 8)
+            .expect("failed to encode black AlphaZero action");
+
+        assert_eq!(white_action, black_action);
+        assert_eq!(
+            decode_alphazero_action(white_action, Color::Black, 8, 8)
+                .expect("failed to decode mirrored black AlphaZero action")
+                .to_lan(),
+            "e7e5"
+        );
+    }
+
+    fn maia2_reference_pawn_promotions() -> Vec<String> {
+        const MAIA2_PROMOTION_ORDER: [PieceType; 4] = [
+            PieceType::Queen,
+            PieceType::Rook,
+            PieceType::Bishop,
+            PieceType::Knight,
+        ];
+
+        let mut promotions = Vec::with_capacity(88);
+        for file in b'a'..=b'h' {
+            let src_file = file as char;
+
+            for piece in MAIA2_PROMOTION_ORDER {
+                promotions.push(format!("{src_file}7{src_file}8{}", piece.to_char()));
+            }
+
+            if file != b'a' {
+                let left_file = (file - 1) as char;
+                for piece in MAIA2_PROMOTION_ORDER {
+                    promotions.push(format!("{src_file}7{left_file}8{}", piece.to_char()));
+                }
+            }
+
+            if file != b'h' {
+                let right_file = (file + 1) as char;
+                for piece in MAIA2_PROMOTION_ORDER {
+                    promotions.push(format!("{src_file}7{right_file}8{}", piece.to_char()));
+                }
+            }
+        }
+
+        promotions
+    }
+
+    #[test]
+    fn test_get_maia2_total_actions() {
+        assert_eq!(
+            get_maia2_total_actions(8, 8),
+            Some(MAIA2_TOTAL_ACTIONS_STANDARD)
+        );
+        assert_eq!(get_maia2_total_actions(6, 6), None);
+    }
+
+    fn maia2_reference_moves() -> Vec<String> {
+        const QUEEN_DELTAS: [(i32, i32); 8] = [
+            (0, 1),
+            (1, 1),
+            (1, 0),
+            (1, -1),
+            (0, -1),
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+        ];
+
+        let mut moves = Vec::with_capacity(MAIA2_TOTAL_ACTIONS_STANDARD);
+
+        for rank in 0..STANDARD_BOARD_SIZE {
+            for file in 0..STANDARD_BOARD_SIZE {
+                let src = Position::from_usize(file, rank);
+
+                let mut queen_targets = Vec::new();
+                for (dx, dy) in QUEEN_DELTAS {
+                    let mut dst_file = file as i32 + dx;
+                    let mut dst_rank = rank as i32 + dy;
+                    while (0..STANDARD_BOARD_SIZE as i32).contains(&dst_file)
+                        && (0..STANDARD_BOARD_SIZE as i32).contains(&dst_rank)
+                    {
+                        queen_targets.push(Position::new(dst_file as u8, dst_rank as u8));
+                        dst_file += dx;
+                        dst_rank += dy;
+                    }
+                }
+                queen_targets.sort_by_key(|pos| Reverse(pos.to_index(STANDARD_BOARD_SIZE)));
+                for dst in queen_targets {
+                    moves.push(Move::from_position(src, dst, MoveFlags::empty()).to_lan());
+                }
+
+                let mut knight_targets: Vec<_> = KNIGHT_DELTAS
+                    .iter()
+                    .filter_map(|&(dx, dy)| {
+                        let dst_file = file as i32 + dx;
+                        let dst_rank = rank as i32 + dy;
+                        ((0..STANDARD_BOARD_SIZE as i32).contains(&dst_file)
+                            && (0..STANDARD_BOARD_SIZE as i32).contains(&dst_rank))
+                        .then(|| Position::new(dst_file as u8, dst_rank as u8))
+                    })
+                    .collect();
+                knight_targets.sort_by_key(|pos| Reverse(pos.to_index(STANDARD_BOARD_SIZE)));
+                for dst in knight_targets {
+                    moves.push(Move::from_position(src, dst, MoveFlags::empty()).to_lan());
+                }
+            }
+        }
+
+        moves.extend(maia2_reference_pawn_promotions());
+        moves
+    }
+
+    #[test]
+    fn test_maia2_action_order_matches_utils_py() {
+        let expected = maia2_reference_moves();
+        assert_eq!(expected.len(), MAIA2_TOTAL_ACTIONS_STANDARD);
+
+        let actual: Vec<_> = (0..MAIA2_TOTAL_ACTIONS_STANDARD)
+            .map(|action| {
+                decode_maia2_action(action, Color::White, 8, 8)
+                    .expect("missing MAIA2 move")
+                    .to_lan()
+            })
+            .collect();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_maia2_action_order_matches_spot_checks() {
+        assert_eq!(
+            decode_maia2_action(0, Color::White, 8, 8)
+                .expect("missing first MAIA2 move")
+                .to_lan(),
+            "a1h8"
+        );
+        assert_eq!(
+            decode_maia2_action(1, Color::White, 8, 8)
+                .expect("missing second MAIA2 move")
+                .to_lan(),
+            "a1a8"
+        );
+        assert_eq!(
+            decode_maia2_action(21, Color::White, 8, 8)
+                .expect("missing first MAIA2 knight move")
+                .to_lan(),
+            "a1b3"
+        );
+        assert_eq!(
+            decode_maia2_action(22, Color::White, 8, 8)
+                .expect("missing second MAIA2 knight move")
+                .to_lan(),
+            "a1c2"
+        );
+
+        let promotion_start = MAIA2_TOTAL_ACTIONS_STANDARD - 88;
+        assert_eq!(
+            decode_maia2_action(promotion_start, Color::White, 8, 8)
+                .expect("missing first promotion move")
+                .to_lan(),
+            "a7a8q"
+        );
+        assert_eq!(
+            decode_maia2_action(promotion_start + 1, Color::White, 8, 8)
+                .expect("missing second promotion move")
+                .to_lan(),
+            "a7a8r"
+        );
+        assert_eq!(
+            decode_maia2_action(promotion_start + 4, Color::White, 8, 8)
+                .expect("missing first capture-promotion move")
+                .to_lan(),
+            "a7b8q"
+        );
+        assert_eq!(
+            decode_maia2_action(MAIA2_TOTAL_ACTIONS_STANDARD - 1, Color::White, 8, 8)
+                .expect("missing last promotion move")
+                .to_lan(),
+            "h7g8n"
+        );
+    }
+
+    #[test]
+    fn test_maia2_action_black_mirroring() {
+        let white_move = Move::from_lan("e2e4", 8, 8).expect("failed to parse white MAIA2 move");
+        let black_move = Move::from_lan("e7e5", 8, 8).expect("failed to parse black MAIA2 move");
+        let white_action = encode_maia2_action(&white_move, Color::White, 8, 8)
+            .expect("failed to encode white MAIA2 action");
+        let black_action = encode_maia2_action(&black_move, Color::Black, 8, 8)
+            .expect("failed to encode black MAIA2 action");
+
+        assert_eq!(white_action, black_action);
+        assert_eq!(
+            decode_maia2_action(white_action, Color::Black, 8, 8)
+                .expect("failed to decode mirrored black action")
+                .to_lan(),
+            "e7e5"
+        );
+    }
+
+    #[test]
+    fn test_maia2_action_promotion_order_and_mirroring() {
+        let white_q = Move::from_lan("a7a8q", 8, 8).expect("failed to parse a7a8q");
+        let white_r = Move::from_lan("a7a8r", 8, 8).expect("failed to parse a7a8r");
+        let white_b = Move::from_lan("a7a8b", 8, 8).expect("failed to parse a7a8b");
+        let white_n = Move::from_lan("a7a8n", 8, 8).expect("failed to parse a7a8n");
+        let black_q = Move::from_lan("a2a1q", 8, 8).expect("failed to parse a2a1q");
+
+        let q_idx =
+            encode_maia2_action(&white_q, Color::White, 8, 8).expect("failed to encode a7a8q");
+        let r_idx =
+            encode_maia2_action(&white_r, Color::White, 8, 8).expect("failed to encode a7a8r");
+        let b_idx =
+            encode_maia2_action(&white_b, Color::White, 8, 8).expect("failed to encode a7a8b");
+        let n_idx =
+            encode_maia2_action(&white_n, Color::White, 8, 8).expect("failed to encode a7a8n");
+        let mirrored_black_idx = encode_maia2_action(&black_q, Color::Black, 8, 8)
+            .expect("failed to encode mirrored black promotion");
+
+        let promotion_start = MAIA2_TOTAL_ACTIONS_STANDARD - 88;
+        assert_eq!(q_idx, promotion_start);
+        assert_eq!(r_idx, promotion_start + 1);
+        assert_eq!(b_idx, promotion_start + 2);
+        assert_eq!(n_idx, promotion_start + 3);
+        assert_eq!(mirrored_black_idx, q_idx);
     }
 
     #[test]
@@ -762,12 +1237,16 @@ mod tests {
                         // Test encoding for all legal moves
                         let width = 8;
                         let height = 8;
-                        let total_actions = get_total_actions(width, height);
+                        let turn = game.turn();
+                        let total_actions = get_alphazero_total_actions(width, height);
                         let mut seen_actions = std::collections::HashSet::new();
 
                         for move_ in &legal_moves {
+                            let normalized_move = mirror_move_for_turn(move_, turn, height);
+
                             // Test plane encoding
-                            let encoded = encode_move_plane(move_, width, height);
+                            let encoded =
+                                encode_alphazero_move_plane(&normalized_move, width, height);
                             assert!(
                                 encoded.is_some(),
                                 "Failed to encode move {} in position {}",
@@ -778,7 +1257,7 @@ mod tests {
                             let plane_idx = encoded.expect(
                                 "test_fuzz_move_encoding_random_games: failed to encode move plane",
                             );
-                            let decoded = decode_move_plane(plane_idx, width, height);
+                            let decoded = decode_alphazero_move_plane(plane_idx, width, height);
                             assert!(
                                 decoded.is_some(),
                                 "Failed to decode plane {} for move {}",
@@ -791,8 +1270,10 @@ mod tests {
                             );
 
                             // Verify deltas
-                            let expected_dx = move_.dst.col as i32 - move_.src.col as i32;
-                            let expected_dy = move_.dst.row as i32 - move_.src.row as i32;
+                            let expected_dx =
+                                normalized_move.dst.col as i32 - normalized_move.src.col as i32;
+                            let expected_dy =
+                                normalized_move.dst.row as i32 - normalized_move.src.row as i32;
 
                             assert_eq!(
                                 dx,
@@ -842,7 +1323,7 @@ mod tests {
                             }
 
                             // Test full action encoding
-                            let action = encode_action(move_, width, height);
+                            let action = encode_alphazero_action(move_, turn, width, height);
                             assert!(
                                 action.is_some(),
                                 "Failed to encode action for move {} in position {}",
@@ -867,20 +1348,20 @@ mod tests {
                                 game.to_fen()
                             );
 
-                            // Verify action roundtrip: decode action back to src/dst
+                            // Verify action roundtrip via normalized plane/src decomposition.
                             let decoded_plane = action_idx / (width * height);
                             let src_index = action_idx % (width * height);
                             let decoded_src_col = src_index % width;
                             let decoded_src_row = src_index / width;
                             assert_eq!(
                                 decoded_src_col,
-                                usize::from(move_.src.col),
+                                usize::from(normalized_move.src.col),
                                 "Action roundtrip: src_col mismatch for move {}",
                                 move_.to_lan()
                             );
                             assert_eq!(
                                 decoded_src_row,
-                                usize::from(move_.src.row),
+                                usize::from(normalized_move.src.row),
                                 "Action roundtrip: src_row mismatch for move {}",
                                 move_.to_lan()
                             );
@@ -888,6 +1369,38 @@ mod tests {
                                 decoded_plane,
                                 plane_idx,
                                 "Action roundtrip: plane mismatch for move {}",
+                                move_.to_lan()
+                            );
+
+                            let decoded_move =
+                                decode_alphazero_action(action_idx, turn, width, height)
+                                    .expect("failed to decode full AlphaZero action");
+                            assert_eq!(
+                                decoded_move.src,
+                                move_.src,
+                                "Action roundtrip: src mismatch for move {}",
+                                move_.to_lan()
+                            );
+                            assert_eq!(
+                                decoded_move.dst,
+                                move_.dst,
+                                "Action roundtrip: dst mismatch for move {}",
+                                move_.to_lan()
+                            );
+                            assert_eq!(
+                                decoded_move.promotion,
+                                move_.promotion.filter(|&p| p != PieceType::Queen),
+                                "Action roundtrip: normalized promotion mismatch for move {}",
+                                move_.to_lan()
+                            );
+
+                            let finalized_decoded_move = game
+                                .decode_alphazero_action(action_idx)
+                                .expect("failed to decode finalized AlphaZero action");
+                            assert_eq!(
+                                finalized_decoded_move.promotion,
+                                move_.promotion,
+                                "Action roundtrip: promotion mismatch for move {}",
                                 move_.to_lan()
                             );
 

@@ -62,7 +62,8 @@ Inspect legal moves in SAN and LAN from a live position:
 Action Encoding
 ^^^^^^^^^^^^^^^
 
-Show input-plane encoding and action-index round-tripping:
+Show input-plane encoding plus AlphaZero and MAIA2 action-index round-tripping
+on the standard 8x8 board. MAIA2 is only available for standard chess:
 
 .. literalinclude:: ../examples/action_encoding.py
    :language: python

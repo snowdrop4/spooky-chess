@@ -355,7 +355,7 @@ fn fifty_move_rule() {
 fn total_actions_standard() {
     let game = Game8x8::standard();
     assert_eq!(
-        crate::encode::get_total_actions(game.width(), game.height()),
-        5248
+        crate::encode::get_alphazero_total_actions(game.width(), game.height()),
+        4672
     );
 }

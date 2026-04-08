@@ -7,7 +7,7 @@ Rust and Python library for the game of Chess.
 - Drive external engines with [Universal Chess Interface](https://en.wikipedia.org/wiki/Universal_Chess_Interface).
 - Variable board sizes from 6x6 to 16x16.
 - Relatively fast.
-- Out-of-the-box support for DL/ML (action encoding and decoding methods).
+- Out-of-the-box support for DL/ML, including AlphaZero and MAIA2 action encoding.
 - Consistent interface with [spooky-connect4](https://github.com/snowdrop4/spooky-connect4) and [spooky-go](https://github.com/snowdrop4/spooky-go).
 
 # Performance

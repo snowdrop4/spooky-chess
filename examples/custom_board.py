@@ -10,7 +10,7 @@ def main() -> None:
     print(f"Initial FEN: {game.to_fen()}")
     print(f"White pieces: {len(game.pieces(sc.WHITE))}")
     print(f"Black pieces: {len(game.pieces(sc.BLACK))}")
-    print(f"Total actions for 6x6: {game.total_actions()}")
+    print(f"AlphaZero total actions for 6x6: {game.alphazero_total_actions()}")
 
     legal_moves = sorted(move_.to_lan() for move_ in game.legal_moves())
     print(f"Legal moves from the starting 6x6 position: {len(legal_moves)}")

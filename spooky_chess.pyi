@@ -34,7 +34,7 @@ NUM_UNDERPROMO_PIECES: Final[int]
 """Number of underpromotion piece types."""
 
 NUM_PROMOTION_ORIENTATIONS: Final[int]
-"""Number of promotion orientations."""
+"""Number of AlphaZero underpromotion orientations."""
 
 def augment_symmetries(
     states: npt.NDArray[np.float32],
@@ -160,23 +160,35 @@ class Game:
     def __getitem__(self, key: str | tuple[int, int]) -> Piece | None:
         """Look up a piece by algebraic square or `(col, row)`."""
 
-    def legal_action_indices(self) -> list[int]:
-        """Return encoded action indices for all legal moves."""
+    def legal_alphazero_action_indices(self) -> list[int]:
+        """Return AlphaZero action indices for all legal moves."""
 
-    def apply_action(self, action: int) -> bool:
-        """Decode and apply an action without legality checking. Returns `False` if it cannot be decoded."""
+    def legal_maia2_action_indices(self) -> list[int]:
+        """Return MAIA2 action indices for all legal moves on a standard 8x8 board, or an empty list otherwise."""
+
+    def apply_alphazero_action(self, action: int) -> bool:
+        """Decode and apply an AlphaZero action without legality checking. Returns `False` if it cannot be decoded in the current position."""
+
+    def apply_maia2_action(self, action: int) -> bool:
+        """Decode and apply a MAIA2 action without legality checking. Returns `False` if it cannot be decoded in the current position."""
 
     def encode_game_planes(self) -> tuple[list[float], int, int, int]:
         """Encode the game as flat planes: `(data, num_planes, height, width)`."""
 
-    def action_planes_count(self) -> int:
-        """Return the number of move-policy planes for this board size."""
+    def alphazero_action_planes_count(self) -> int:
+        """Return the number of AlphaZero move-policy planes for this board size."""
 
-    def decode_action(self, action: int) -> Move | None:
-        """Decode an action index into a move."""
+    def decode_alphazero_action(self, action: int) -> Move | None:
+        """Decode an AlphaZero action index into a move for the current position."""
 
-    def total_actions(self) -> int:
-        """Return the total number of action indices for this board size."""
+    def decode_maia2_action(self, action: int) -> Move | None:
+        """Decode a MAIA2 action index into a move for the current position, or `None` on non-8x8 boards."""
+
+    def alphazero_total_actions(self) -> int:
+        """Return the total number of AlphaZero action indices for this board size."""
+
+    def maia2_total_actions(self) -> int | None:
+        """Return the MAIA2 action count, or `None` on non-8x8 boards."""
 
     def board_shape(self) -> tuple[int, int]:
         """Return the board shape as `(height, width)`."""
@@ -276,8 +288,11 @@ class Move:
     def is_double_push(self) -> bool:
         """Whether the move is a two-square pawn push."""
 
-    def encode(self, width: int, height: int) -> int | None:
-        """Encode the move as an action index for a board size."""
+    def encode_alphazero_action(self, turn: int, width: int, height: int) -> int | None:
+        """Encode the move using AlphaZero's action space for `turn` and a board size."""
+
+    def encode_maia2_action(self, turn: int) -> int | None:
+        """Encode the move using MAIA2's standard-8x8 action space for `turn`."""
 
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
