@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("White pieces: {}", game.pieces(Color::White).len());
     println!("Black pieces: {}", game.pieces(Color::Black).len());
     println!(
-        "Total actions for 6x6: {}",
-        encode::get_total_actions(game.width(), game.height())
+        "AlphaZero total actions for 6x6: {}",
+        encode::get_alphazero_total_actions(game.width(), game.height())
     );
 
     let mut legal_moves: Vec<_> = game

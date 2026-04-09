@@ -69,7 +69,7 @@ fn validate_batch_shapes(
         ));
     }
 
-    let total_actions = encode::get_total_actions(width, height);
+    let total_actions = encode::get_alphazero_total_actions(width, height);
     if policies_shape[1] != total_actions {
         return Err(PyValueError::new_err(
             "policy action count does not match the chess board dimensions",
@@ -85,9 +85,6 @@ fn mirrored_action_index(action_idx: usize, board_width: usize, board_height: us
     let straight_diagonal_planes = encode::NUM_DIRECTIONS * max_distance;
     let knight_planes_start = straight_diagonal_planes;
     let underpromo_planes_start = knight_planes_start + encode::NUM_KNIGHT_DELTAS;
-    let forward_underpromo_planes =
-        encode::NUM_UNDERPROMO_DIRECTIONS * encode::NUM_UNDERPROMO_PIECES;
-
     let plane = action_idx / board_size;
     let src_index = action_idx % board_size;
     let src_row = src_index / board_width;
@@ -104,12 +101,9 @@ fn mirrored_action_index(action_idx: usize, board_width: usize, board_height: us
         knight_planes_start + KNIGHT_MIRROR[knight_idx]
     } else {
         let underpromo_idx = plane - underpromo_planes_start;
-        let orientation_idx = underpromo_idx / forward_underpromo_planes;
-        let idx_within_orientation = underpromo_idx % forward_underpromo_planes;
-        let dir_idx = idx_within_orientation / encode::NUM_UNDERPROMO_PIECES;
-        let piece_idx = idx_within_orientation % encode::NUM_UNDERPROMO_PIECES;
+        let dir_idx = underpromo_idx / encode::NUM_UNDERPROMO_PIECES;
+        let piece_idx = underpromo_idx % encode::NUM_UNDERPROMO_PIECES;
         underpromo_planes_start
-            + orientation_idx * forward_underpromo_planes
             + UNDERPROMO_DIR_MIRROR[dir_idx] * encode::NUM_UNDERPROMO_PIECES
             + piece_idx
     };

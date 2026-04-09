@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
+use crate::color::Color;
 use crate::encode;
 use crate::r#move::{Move, MoveFlags};
 use crate::position::Position;
@@ -118,8 +119,31 @@ impl PyMove {
     // Encoding/decoding
     // ---------------------------------------------------------------------
 
-    pub fn encode(&self, width: usize, height: usize) -> Option<usize> {
-        encode::encode_action(&self.move_, width, height)
+    /// Encode the move using AlphaZero's action space for `turn` and a board
+    /// size.
+    pub fn encode_alphazero_action(
+        &self,
+        turn: i8,
+        width: usize,
+        height: usize,
+    ) -> PyResult<Option<usize>> {
+        let turn = Color::from_int(turn).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("turn must be 1 (white) or -1 (black)")
+        })?;
+        Ok(encode::encode_alphazero_action(
+            &self.move_,
+            turn,
+            width,
+            height,
+        ))
+    }
+
+    /// Encode the move using MAIA2's standard-8x8 action space for `turn`.
+    pub fn encode_maia2_action(&self, turn: i8) -> PyResult<Option<usize>> {
+        let turn = Color::from_int(turn).ok_or_else(|| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("turn must be 1 (white) or -1 (black)")
+        })?;
+        Ok(encode::encode_maia2_action(&self.move_, turn, 8, 8))
     }
 
     // ---------------------------------------------------------------------

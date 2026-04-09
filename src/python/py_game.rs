@@ -12,6 +12,7 @@ use crate::encode;
 use crate::pieces::PieceType;
 use crate::position::Position;
 
+/// A mutable chess game on a `width x height` board.
 #[pyclass(name = "Game")]
 pub struct PyGame {
     pub(super) inner: GameInner,
@@ -246,45 +247,76 @@ impl PyGame {
         }
     }
 
-    pub fn legal_action_indices(&mut self) -> Vec<usize> {
-        dispatch_game!(&mut self.inner, g => {
-            let width = g.width();
-            let height = g.height();
-            g.legal_moves()
-                .into_iter()
-                .filter_map(|m| encode::encode_action(&m, width, height))
-                .collect()
-        })
+    /// Return AlphaZero action indices for all legal moves.
+    pub fn legal_alphazero_action_indices(&mut self) -> Vec<usize> {
+        dispatch_game!(&mut self.inner, g => g.legal_alphazero_action_indices())
     }
 
-    pub fn apply_action(&mut self, action: usize) -> bool {
-        dispatch_game!(&mut self.inner, g => g.apply_action(action))
+    /// Return MAIA2 action indices for all legal moves on a standard 8x8
+    /// board, or an empty list otherwise.
+    pub fn legal_maia2_action_indices(&mut self) -> Vec<usize> {
+        dispatch_game!(&mut self.inner, g => g.legal_maia2_action_indices())
+    }
+
+    /// Decode and apply an AlphaZero action without legality checking.
+    ///
+    /// Returns `False` if the action cannot be decoded in the current
+    /// position.
+    pub fn apply_alphazero_action(&mut self, action: usize) -> bool {
+        dispatch_game!(&mut self.inner, g => g.apply_alphazero_action(action))
+    }
+
+    /// Decode and apply a MAIA2 action without legality checking.
+    ///
+    /// Returns `False` if the action cannot be decoded in the current
+    /// position.
+    pub fn apply_maia2_action(&mut self, action: usize) -> bool {
+        dispatch_game!(&mut self.inner, g => g.apply_maia2_action(action))
     }
 
     // ---------------------------------------------------------------------
     // Encoding/decoding
     // ---------------------------------------------------------------------
 
+    /// Encode the game as flat planes: `(data, num_planes, height, width)`.
     pub fn encode_game_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
         dispatch_game!(&mut self.inner, g => encode::encode_game_planes(g))
     }
 
-    pub fn action_planes_count(&self) -> usize {
+    /// Return the number of AlphaZero move-policy planes for this board size.
+    pub fn alphazero_action_planes_count(&self) -> usize {
         dispatch_game!(&self.inner, g => {
-            encode::get_move_planes_count(g.width(), g.height())
+            encode::get_alphazero_move_planes_count(g.width(), g.height())
         })
     }
 
-    pub fn decode_action(&self, action: usize) -> Option<PyMove> {
+    /// Decode an AlphaZero action index into a move for the current position.
+    pub fn decode_alphazero_action(&self, action: usize) -> Option<PyMove> {
         dispatch_game!(&self.inner, g => {
-            g.decode_action(action).map(|m| PyMove { move_: m })
+            g.decode_alphazero_action(action)
+                .map(|m| PyMove { move_: m })
         })
     }
 
-    pub fn total_actions(&self) -> usize {
+    /// Decode a MAIA2 action index into a move for the current position.
+    ///
+    /// Returns `None` on non-8x8 boards.
+    pub fn decode_maia2_action(&self, action: usize) -> Option<PyMove> {
         dispatch_game!(&self.inner, g => {
-            encode::get_total_actions(g.width(), g.height())
+            g.decode_maia2_action(action)
+                .map(|m| PyMove { move_: m })
         })
+    }
+
+    /// Return the total number of AlphaZero action indices for this board
+    /// size.
+    pub fn alphazero_total_actions(&self) -> usize {
+        dispatch_game!(&self.inner, g => g.alphazero_total_actions())
+    }
+
+    /// Return the MAIA2 action count, or `None` on non-8x8 boards.
+    pub fn maia2_total_actions(&self) -> Option<usize> {
+        dispatch_game!(&self.inner, g => g.maia2_total_actions())
     }
 
     pub fn board_shape(&self) -> (usize, usize) {
