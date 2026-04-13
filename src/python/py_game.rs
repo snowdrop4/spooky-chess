@@ -278,9 +278,13 @@ impl PyGame {
     // Encoding/decoding
     // ---------------------------------------------------------------------
 
-    /// Encode the game as flat planes: `(data, num_planes, height, width)`.
-    pub fn encode_game_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
-        dispatch_game!(&mut self.inner, g => encode::encode_game_planes(g))
+    /// Encode the game as flat spatial planes: `(data, num_planes, height, width)`.
+    pub fn encode_spatial_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
+        dispatch_game!(&mut self.inner, g => encode::encode_spatial_game_planes(g))
+    }
+
+    pub fn encode_global_state_features(&mut self) -> Vec<f32> {
+        Vec::new()
     }
 
     /// Return the number of AlphaZero move-policy planes for this board size.
@@ -323,8 +327,12 @@ impl PyGame {
         dispatch_game!(&self.inner, g => (g.height(), g.width()))
     }
 
-    pub fn input_plane_count(&self) -> usize {
-        encode::TOTAL_INPUT_PLANES
+    pub fn spatial_input_plane_count(&self) -> usize {
+        encode::SPATIAL_INPUT_PLANES
+    }
+
+    pub fn global_input_feature_count(&self) -> usize {
+        encode::GLOBAL_INPUT_FEATURES
     }
 
     pub fn reward_absolute(&mut self) -> f32 {

@@ -21,8 +21,11 @@ pub const CONSTANT_PLANES: usize = 2 + 1 + 1 + 4 + 1;
 /// Number of positions in the game history to encode.
 pub const HISTORY_LENGTH: usize = 8;
 
-/// Total number of input planes for the encoder.
-pub const TOTAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT_PLANES;
+/// Total number of spatial input planes for the encoder.
+pub const SPATIAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT_PLANES;
+
+/// Chess does not currently expose any separate global input features.
+pub const GLOBAL_INPUT_FEATURES: usize = 0;
 
 /// Number of sliding directions: N, NE, E, SE, S, SW, W, NW.
 pub const NUM_DIRECTIONS: usize = 8;
@@ -184,13 +187,13 @@ fn maia2_action_table() -> &'static Maia2ActionTable {
 ///
 /// Returns `(flat_data, num_planes, height, width)` in row-major order.
 #[hotpath::measure]
-pub fn encode_game_planes<const W: usize, const H: usize>(
+pub fn encode_spatial_game_planes<const W: usize, const H: usize>(
     game: &mut Game<W, H>,
 ) -> (Vec<f32>, usize, usize, usize)
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    let num_planes = TOTAL_INPUT_PLANES;
+    let num_planes = SPATIAL_INPUT_PLANES;
     let board_size = H * W;
     let total_size = num_planes * board_size;
     let mut data = vec![0.0f32; total_size];
@@ -710,10 +713,10 @@ mod tests {
     #[test]
     fn test_standard_game_encode_initial_position() {
         let mut game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&mut game);
+        let (data, num_planes, height, width) = encode_spatial_game_planes(&mut game);
 
-        // Should have TOTAL_INPUT_PLANES planes
-        assert_eq!(num_planes, TOTAL_INPUT_PLANES);
+        // Should have SPATIAL_INPUT_PLANES planes
+        assert_eq!(num_planes, SPATIAL_INPUT_PLANES);
         assert_eq!(height, 8);
         assert_eq!(width, 8);
         assert_eq!(data.len(), num_planes * height * width);
@@ -739,10 +742,10 @@ mod tests {
     #[test]
     fn test_standard_game_encode_game() {
         let mut game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&mut game);
+        let (data, num_planes, height, width) = encode_spatial_game_planes(&mut game);
 
-        // Should have TOTAL_INPUT_PLANES planes
-        assert_eq!(num_planes, TOTAL_INPUT_PLANES);
+        // Should have SPATIAL_INPUT_PLANES planes
+        assert_eq!(num_planes, SPATIAL_INPUT_PLANES);
         assert_eq!(height, 8);
         assert_eq!(width, 8);
         assert_eq!(data.len(), num_planes * height * width);

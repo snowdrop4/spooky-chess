@@ -94,7 +94,7 @@ fn show_maia2_roundtrip(game: &StandardGame, mv: &spooky_chess::r#move::Move) {
 
 fn main() {
     let mut game = StandardGame::standard();
-    let (data, num_planes, height, width) = encode::encode_game_planes(&mut game);
+    let (data, num_planes, height, width) = encode::encode_spatial_game_planes(&mut game);
 
     println!("Encoded game planes: {num_planes} x {height} x {width}");
     println!("Flat data length: {}", data.len());

@@ -47,7 +47,7 @@ fn validate_batch_shapes(
     let height = states_shape[2];
     let width = states_shape[3];
 
-    if plane_count != encode::TOTAL_INPUT_PLANES {
+    if plane_count != encode::SPATIAL_INPUT_PLANES {
         return Err(PyValueError::new_err(
             "states plane count does not match chess encoder planes",
         ));

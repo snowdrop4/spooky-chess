@@ -9,8 +9,11 @@ WHITE: Final[int]
 BLACK: Final[int]
 """Side-to-move constant for Black."""
 
-TOTAL_INPUT_PLANES: Final[int]
-"""Total number of input planes for the encoder."""
+SPATIAL_INPUT_PLANES: Final[int]
+"""Total number of spatial input planes for the encoder."""
+
+GLOBAL_INPUT_FEATURES: Final[int]
+"""Total number of separate global input features."""
 
 HISTORY_LENGTH: Final[int]
 """Number of positions in the game history to encode."""
@@ -172,8 +175,11 @@ class Game:
     def apply_maia2_action(self, action: int) -> bool:
         """Decode and apply a MAIA2 action without legality checking. Returns `False` if it cannot be decoded in the current position."""
 
-    def encode_game_planes(self) -> tuple[list[float], int, int, int]:
-        """Encode the game as flat planes: `(data, num_planes, height, width)`."""
+    def encode_spatial_planes(self) -> tuple[list[float], int, int, int]:
+        """Encode the game as flat spatial planes: `(data, num_planes, height, width)`."""
+
+    def encode_global_state_features(self) -> list[float]:
+        """Encode separate global state features."""
 
     def alphazero_action_planes_count(self) -> int:
         """Return the number of AlphaZero move-policy planes for this board size."""
@@ -193,8 +199,11 @@ class Game:
     def board_shape(self) -> tuple[int, int]:
         """Return the board shape as `(height, width)`."""
 
-    def input_plane_count(self) -> int:
-        """Return the total number of input planes."""
+    def spatial_input_plane_count(self) -> int:
+        """Return the total number of spatial input planes."""
+
+    def global_input_feature_count(self) -> int:
+        """Return the total number of separate global input features."""
 
     def reward_absolute(self) -> float:
         """Encode the current outcome as `1.0`, `-1.0`, or `0.0`."""

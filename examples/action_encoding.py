@@ -64,7 +64,7 @@ def show_maia2_roundtrip(game: sc.Game, move_: sc.Move) -> None:
 
 def main() -> None:
     game = sc.Game.standard()
-    data, num_planes, height, width = game.encode_game_planes()
+    data, num_planes, height, width = game.encode_spatial_planes()
 
     print(f"Encoded game planes: {num_planes} x {height} x {width}")
     print(f"Flat data length: {len(data)}")
