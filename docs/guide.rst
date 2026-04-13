@@ -18,7 +18,7 @@ The package includes:
 * ``Game``, ``Move``, ``Piece``, and ``Position`` for board state and move handling.
 * ``parse_pgn`` and ``PgnGame`` for PGN parsing.
 * ``UciEngine`` and ``SearchResult`` for talking to external UCI engines such as Stockfish.
-* Action/state encoding helpers and constants for ML-oriented workflows.
+* Spatial/global state encoding helpers and action-space constants for ML-oriented workflows.
 
 Examples
 --------
@@ -62,8 +62,12 @@ Inspect legal moves in SAN and LAN from a live position:
 Action Encoding
 ^^^^^^^^^^^^^^^
 
-Show input-plane encoding plus AlphaZero and MAIA2 action-index round-tripping
-on the standard 8x8 board. MAIA2 is only available for standard chess:
+Show the split state-encoding API: spatial planes from
+``Game.encode_spatial_planes()``, separate global features from
+``Game.encode_global_state_features()``, plus AlphaZero and MAIA2
+action-index round-tripping on the standard 8x8 board. Chess currently
+exposes zero global features. MAIA2 is only available for standard
+chess:
 
 .. literalinclude:: ../examples/action_encoding.py
    :language: python

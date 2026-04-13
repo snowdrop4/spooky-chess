@@ -47,9 +47,9 @@ fn validate_batch_shapes(
     let height = states_shape[2];
     let width = states_shape[3];
 
-    if plane_count != encode::TOTAL_INPUT_PLANES {
+    if plane_count != encode::SPATIAL_INPUT_PLANES {
         return Err(PyValueError::new_err(
-            "states plane count does not match chess encoder planes",
+            "states plane count does not match chess spatial encoder planes",
         ));
     }
 
@@ -127,6 +127,8 @@ fn mirrored_plane_index(plane_idx: usize) -> usize {
     }
 }
 
+/// Augment a batch of spatial chess states and policies with their horizontal
+/// mirror.
 #[pyfunction]
 pub fn augment_symmetries<'py>(
     py: Python<'py>,

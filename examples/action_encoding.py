@@ -64,10 +64,12 @@ def show_maia2_roundtrip(game: sc.Game, move_: sc.Move) -> None:
 
 def main() -> None:
     game = sc.Game.standard()
-    data, num_planes, height, width = game.encode_game_planes()
+    spatial_data, num_planes, height, width = game.encode_spatial_planes()
+    global_features = game.encode_global_state_features()
 
-    print(f"Encoded game planes: {num_planes} x {height} x {width}")
-    print(f"Flat data length: {len(data)}")
+    print(f"Encoded spatial planes: {num_planes} x {height} x {width}")
+    print(f"Flat spatial data length: {len(spatial_data)}")
+    print(f"Global state feature count: {len(global_features)}")
     print(f"AlphaZero action planes: {game.alphazero_action_planes_count()}")
 
     move_ = game.move_from_lan("e2e4")

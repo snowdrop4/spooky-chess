@@ -46,7 +46,8 @@ fn spooky_chess(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(augment_symmetries, m)?)?;
     m.add("WHITE", Color::White as i8)?;
     m.add("BLACK", Color::Black as i8)?;
-    m.add("TOTAL_INPUT_PLANES", encode::TOTAL_INPUT_PLANES)?;
+    m.add("SPATIAL_INPUT_PLANES", encode::SPATIAL_INPUT_PLANES)?;
+    m.add("GLOBAL_INPUT_FEATURES", encode::GLOBAL_INPUT_FEATURES)?;
     m.add("HISTORY_LENGTH", encode::HISTORY_LENGTH)?;
     m.add("PIECE_PLANES", encode::PIECE_PLANES)?;
     m.add("CONSTANT_PLANES", encode::CONSTANT_PLANES)?;

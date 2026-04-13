@@ -21,8 +21,14 @@ pub const CONSTANT_PLANES: usize = 2 + 1 + 1 + 4 + 1;
 /// Number of positions in the game history to encode.
 pub const HISTORY_LENGTH: usize = 8;
 
-/// Total number of input planes for the encoder.
-pub const TOTAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT_PLANES;
+/// Total number of board-shaped spatial planes returned by
+/// [`encode_spatial_game_planes`].
+pub const SPATIAL_INPUT_PLANES: usize = (HISTORY_LENGTH * PIECE_PLANES) + CONSTANT_PLANES;
+
+/// Total number of separate non-spatial global input features.
+///
+/// Chess does not currently expose any, so this is `0`.
+pub const GLOBAL_INPUT_FEATURES: usize = 0;
 
 /// Number of sliding directions: N, NE, E, SE, S, SW, W, NW.
 pub const NUM_DIRECTIONS: usize = 8;
@@ -45,10 +51,11 @@ pub const NUM_PROMOTION_ORIENTATIONS: usize = 1;
 /// Total MAIA2 action indices for standard 8x8 chess.
 pub const MAIA2_TOTAL_ACTIONS_STANDARD: usize = 1880;
 
-/// Normalization divisor for fullmove number in the NN input planes.
+/// Normalization divisor for fullmove number in the spatial encoder planes.
 const FULLMOVE_SCALE: f32 = 100.0;
 
-/// Normalization divisor for halfmove clock (no-progress count) in the NN input planes.
+/// Normalization divisor for halfmove clock (no-progress count) in the spatial
+/// encoder planes.
 const HALFMOVE_SCALE: f32 = 50.0;
 
 const STANDARD_BOARD_SIZE: usize = 8;
@@ -180,17 +187,20 @@ fn maia2_action_table() -> &'static Maia2ActionTable {
     MAIA2_ACTION_TABLE.get_or_init(build_maia2_action_table)
 }
 
-/// Encodes the full game state into a flat `f32` array.
+/// Encode the board-shaped portion of the game state into a flat `f32` array.
 ///
 /// Returns `(flat_data, num_planes, height, width)` in row-major order.
+///
+/// Any separate non-spatial global features are tracked outside this tensor via
+/// [`GLOBAL_INPUT_FEATURES`]. Chess currently exposes no such features.
 #[hotpath::measure]
-pub fn encode_game_planes<const W: usize, const H: usize>(
+pub fn encode_spatial_game_planes<const W: usize, const H: usize>(
     game: &mut Game<W, H>,
 ) -> (Vec<f32>, usize, usize, usize)
 where
     [(); (W * H).div_ceil(64)]:,
 {
-    let num_planes = TOTAL_INPUT_PLANES;
+    let num_planes = SPATIAL_INPUT_PLANES;
     let board_size = H * W;
     let total_size = num_planes * board_size;
     let mut data = vec![0.0f32; total_size];
@@ -710,10 +720,10 @@ mod tests {
     #[test]
     fn test_standard_game_encode_initial_position() {
         let mut game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&mut game);
+        let (data, num_planes, height, width) = encode_spatial_game_planes(&mut game);
 
-        // Should have TOTAL_INPUT_PLANES planes
-        assert_eq!(num_planes, TOTAL_INPUT_PLANES);
+        // Should have SPATIAL_INPUT_PLANES planes
+        assert_eq!(num_planes, SPATIAL_INPUT_PLANES);
         assert_eq!(height, 8);
         assert_eq!(width, 8);
         assert_eq!(data.len(), num_planes * height * width);
@@ -739,10 +749,10 @@ mod tests {
     #[test]
     fn test_standard_game_encode_game() {
         let mut game = Game::standard();
-        let (data, num_planes, height, width) = encode_game_planes(&mut game);
+        let (data, num_planes, height, width) = encode_spatial_game_planes(&mut game);
 
-        // Should have TOTAL_INPUT_PLANES planes
-        assert_eq!(num_planes, TOTAL_INPUT_PLANES);
+        // Should have SPATIAL_INPUT_PLANES planes
+        assert_eq!(num_planes, SPATIAL_INPUT_PLANES);
         assert_eq!(height, 8);
         assert_eq!(width, 8);
         assert_eq!(data.len(), num_planes * height * width);

@@ -5,7 +5,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use rand::SeedableRng;
 use rand::prelude::IndexedRandom;
 use rand::rngs::SmallRng;
-use spooky_chess::encode::encode_game_planes;
+use spooky_chess::encode::encode_spatial_game_planes;
 use spooky_chess::game::StandardGame;
 use spooky_chess::outcome::TurnState;
 use spooky_chess::uci::UciEngine;
@@ -73,12 +73,12 @@ fn bench_make_unmake(c: &mut Criterion) {
     });
 }
 
-fn bench_encode_game_planes(c: &mut Criterion) {
+fn bench_encode_spatial_game_planes(c: &mut Criterion) {
     let game = setup_midgame();
-    c.bench_function("encode_game_planes", |b| {
+    c.bench_function("encode_spatial_game_planes", |b| {
         b.iter_batched(
             || game.clone(),
-            |mut g| black_box(encode_game_planes(&mut g)),
+            |mut g| black_box(encode_spatial_game_planes(&mut g)),
             criterion::BatchSize::SmallInput,
         )
     });
@@ -120,7 +120,7 @@ fn bench_self_play_step(c: &mut Criterion) {
             || game.clone(),
             |mut g| {
                 let moves = g.legal_moves();
-                let _planes = encode_game_planes(&mut g);
+                let _planes = encode_spatial_game_planes(&mut g);
                 let mv = moves
                     .first()
                     .expect("bench_self_play_step: legal moves must not be empty");
@@ -139,7 +139,7 @@ criterion_group!(
         bench_legal_moves,
         bench_make_move,
         bench_make_unmake,
-        bench_encode_game_planes,
+        bench_encode_spatial_game_planes,
         bench_outcome,
         bench_self_play_step,
 );

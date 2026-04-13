@@ -278,9 +278,21 @@ impl PyGame {
     // Encoding/decoding
     // ---------------------------------------------------------------------
 
-    /// Encode the game as flat planes: `(data, num_planes, height, width)`.
-    pub fn encode_game_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
-        dispatch_game!(&mut self.inner, g => encode::encode_game_planes(g))
+    /// Encode the board-shaped portion of the game state as flat spatial
+    /// planes: `(data, num_planes, height, width)`.
+    ///
+    /// Any separate non-spatial global features are returned by
+    /// `encode_global_state_features()`. Chess currently exposes none.
+    pub fn encode_spatial_planes(&mut self) -> (Vec<f32>, usize, usize, usize) {
+        dispatch_game!(&mut self.inner, g => encode::encode_spatial_game_planes(g))
+    }
+
+    /// Encode separate non-spatial global state features.
+    ///
+    /// Chess currently exposes no such features, so this returns an empty
+    /// list.
+    pub fn encode_global_state_features(&mut self) -> Vec<f32> {
+        Vec::new()
     }
 
     /// Return the number of AlphaZero move-policy planes for this board size.
@@ -319,12 +331,19 @@ impl PyGame {
         dispatch_game!(&self.inner, g => g.maia2_total_actions())
     }
 
+    /// Return the board shape as `(height, width)`.
     pub fn board_shape(&self) -> (usize, usize) {
         dispatch_game!(&self.inner, g => (g.height(), g.width()))
     }
 
-    pub fn input_plane_count(&self) -> usize {
-        encode::TOTAL_INPUT_PLANES
+    /// Return the total number of spatial input planes.
+    pub fn spatial_input_plane_count(&self) -> usize {
+        encode::SPATIAL_INPUT_PLANES
+    }
+
+    /// Return the total number of separate global input features.
+    pub fn global_input_feature_count(&self) -> usize {
+        encode::GLOBAL_INPUT_FEATURES
     }
 
     pub fn reward_absolute(&mut self) -> f32 {

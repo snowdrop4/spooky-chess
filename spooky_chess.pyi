@@ -9,8 +9,11 @@ WHITE: Final[int]
 BLACK: Final[int]
 """Side-to-move constant for Black."""
 
-TOTAL_INPUT_PLANES: Final[int]
-"""Total number of input planes for the encoder."""
+SPATIAL_INPUT_PLANES: Final[int]
+"""Total number of board-shaped spatial planes returned by `Game.encode_spatial_planes()`."""
+
+GLOBAL_INPUT_FEATURES: Final[int]
+"""Total number of scalar global features returned by `Game.encode_global_state_features()`. Chess currently exposes none."""
 
 HISTORY_LENGTH: Final[int]
 """Number of positions in the game history to encode."""
@@ -49,7 +52,7 @@ def augment_symmetries(
     npt.NDArray[np.float32],
     npt.NDArray[np.float32],
 ]:
-    """Augment a chess training batch with its horizontal mirror."""
+    """Augment a batch of spatial chess states and policies with its horizontal mirror."""
 
 def parse_pgn(pgn: str) -> list[PgnGame]:
     """Parse one or more PGN games from a string."""
@@ -172,8 +175,11 @@ class Game:
     def apply_maia2_action(self, action: int) -> bool:
         """Decode and apply a MAIA2 action without legality checking. Returns `False` if it cannot be decoded in the current position."""
 
-    def encode_game_planes(self) -> tuple[list[float], int, int, int]:
-        """Encode the game as flat planes: `(data, num_planes, height, width)`."""
+    def encode_spatial_planes(self) -> tuple[list[float], int, int, int]:
+        """Encode the board-shaped portion of the NN input as flat spatial planes: `(data, num_planes, height, width)`."""
+
+    def encode_global_state_features(self) -> list[float]:
+        """Encode separate non-spatial global state features. Chess currently returns an empty list."""
 
     def alphazero_action_planes_count(self) -> int:
         """Return the number of AlphaZero move-policy planes for this board size."""
@@ -193,8 +199,11 @@ class Game:
     def board_shape(self) -> tuple[int, int]:
         """Return the board shape as `(height, width)`."""
 
-    def input_plane_count(self) -> int:
-        """Return the total number of input planes."""
+    def spatial_input_plane_count(self) -> int:
+        """Return the number of board-shaped spatial planes produced by `encode_spatial_planes()`."""
+
+    def global_input_feature_count(self) -> int:
+        """Return the number of scalar global features produced by `encode_global_state_features()`."""
 
     def reward_absolute(self) -> float:
         """Encode the current outcome as `1.0`, `-1.0`, or `0.0`."""
