@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spooky_chess"
-version = "1.1.0"
+version = "1.1.1"
 description = "High-performance chess library with board sizes from 6x6 to 16x16"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,7 +14,8 @@ dependencies = []
 [dependency-groups]
 dev = [
     "setuptools-rust",
-    "pyright>=1.1.405",
+    "numpy>=1.24.0",
+    "ty>=0.0.88",
     "pytest>=9.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.13.1",
@@ -61,3 +62,6 @@ preview = true
 [tool.pytest]
 pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
+
+[tool.ty.environment]
+extra-paths = ["docs/_ext"]

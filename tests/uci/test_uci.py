@@ -102,8 +102,9 @@ def test_new_game_from_fen() -> None:
 @needs_stockfish
 def test_engine_author() -> None:
     engine = spooky_chess.UciEngine("stockfish")
-    assert engine.engine_author() is not None
-    assert len(engine.engine_author()) > 0
+    author = engine.engine_author()
+    assert author is not None
+    assert len(author) > 0
 
 
 @needs_stockfish
